@@ -176,7 +176,7 @@ void PreferencesDialog::writeSettings()
     m_settings.beginGroup(QLatin1String("SerialPort"));
     {
         m_settings.setValue(QLatin1String("portName"), m_mainWindow->currentPortName());
-        m_settings.setValue(QLatin1String("baudRate"), m_mainWindow->currentBaudRate());
+        m_settings.setValue(QLatin1String("baudRate"), ui->cmbSpeed->itemText(0));
     }
     m_settings.endGroup();
 

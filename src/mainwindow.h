@@ -20,7 +20,6 @@ public:
     ~MainWindow();
 
     const QString currentPortName();
-    qint32 currentBaudRate();
     const QFont &logWidgetFont();
 
 public slots:
