@@ -22,14 +22,6 @@ MainWindow::MainWindow(QWidget *parent) :
 
     //
 
-    m_port->setParity(QSerialPort::NoParity); // todo if
-    m_port->setDataBits(QSerialPort::Data8); // todo if
-    m_port->setParity(QSerialPort::NoParity); // todo if
-    m_port->setStopBits(QSerialPort::OneStop); // todo if
-    m_port->setFlowControl(QSerialPort::NoFlowControl); // todo if
-
-    //
-
     updatePortStatus(false);
 
     //
@@ -86,8 +78,6 @@ void MainWindow::openSerialDevice(const QString &portName, qint32 baudRate)
         }
     }
 
-    m_port->setBaudRate(baudRate);
-
     if (m_port->isOpen())
     {
         updatePortStatus(true);
@@ -98,11 +88,21 @@ void MainWindow::openSerialDevice(const QString &portName, qint32 baudRate)
 
         if (!m_port->open(QSerialPort::ReadWrite))
         {
+            m_port->setBaudRate(baudRate); // just store
+
             qDebug() << "ERROR Can't open" << m_port->portName();
             updatePortStatus(false);
         }
         else
         {
+            m_port->setParity(QSerialPort::NoParity); // todo if
+            m_port->setDataBits(QSerialPort::Data8); // todo if
+            m_port->setParity(QSerialPort::NoParity); // todo if
+            m_port->setStopBits(QSerialPort::OneStop); // todo if
+            m_port->setFlowControl(QSerialPort::NoFlowControl); // todo if
+
+            m_port->setBaudRate(baudRate);
+
             updatePortStatus(true);
         }
     }
