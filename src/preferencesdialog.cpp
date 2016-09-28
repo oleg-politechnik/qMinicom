@@ -30,6 +30,9 @@ PreferencesDialog::PreferencesDialog(MainWindow *parent) :
     connect(ui->bgShadeSlider, SIGNAL(valueChanged(int)), this, SLOT(pickUpBgShadeValue(int)));
     connect(ui->fontComboBox, SIGNAL(activated(QString)), this, SLOT(pickUpFont(QString)));
     connect(ui->fontSizeSpinBox, SIGNAL(valueChanged(int)), this, SLOT(pickUpFontSize(int)));
+    connect(ui->tabSizeSpinBox, SIGNAL(valueChanged(int)), this, SLOT(pickUpTabSize(int)));
+
+    ui->tabSizeSpinBox->setMinimum(1);
 
     // populate speed list
 
@@ -82,7 +85,7 @@ void PreferencesDialog::accept()
     QDialog::accept();
 
     m_mainWindow->openSerialDevice(ui->cmbDevice->currentText(), ui->cmbSpeed->currentText().toUInt());
-    m_mainWindow->setLogWidgetSettings(ui->plainTextEdit->font(), ui->plainTextEdit->palette());
+    m_mainWindow->setLogWidgetSettings(ui->plainTextEdit->font(), ui->plainTextEdit->palette(), pixelsFromSpaces(ui->tabSizeSpinBox->value()));
 }
 
 void PreferencesDialog::pickUpTextShadeValue(int val)
@@ -94,7 +97,7 @@ void PreferencesDialog::pickUpTextShadeValue(int val)
     palette.setColor(QPalette::Text, color);
     ui->plainTextEdit->setPalette(palette);
 
-    ui->plainTextEdit->setPlainText(QString("Text shade: %1\nBackground shade: %2\n").arg(m_textShade).arg(m_bgShade));
+    plainTextUpdateDemo();
 }
 
 void PreferencesDialog::pickUpBgShadeValue(int val)
@@ -106,7 +109,7 @@ void PreferencesDialog::pickUpBgShadeValue(int val)
     palette.setColor(QPalette::Base, color);
     ui->plainTextEdit->setPalette(palette);
 
-    ui->plainTextEdit->setPlainText(QString("Text shade: %1\nBackground shade: %2\n").arg(m_textShade).arg(m_bgShade));
+    plainTextUpdateDemo();
 }
 
 void PreferencesDialog::pickUpFont(const QString &name)
@@ -114,6 +117,8 @@ void PreferencesDialog::pickUpFont(const QString &name)
     QFont font = ui->plainTextEdit->font();
     font.setFamily(name);
     ui->plainTextEdit->setFont(font);
+
+    pickUpTabSize(ui->tabSizeSpinBox->value());
 }
 
 void PreferencesDialog::pickUpFontSize(int val)
@@ -121,6 +126,15 @@ void PreferencesDialog::pickUpFontSize(int val)
     QFont font = ui->plainTextEdit->font();
     font.setPixelSize(val);
     ui->plainTextEdit->setFont(font);
+
+    pickUpTabSize(ui->tabSizeSpinBox->value());
+}
+
+void PreferencesDialog::pickUpTabSize(int val)
+{
+    ui->plainTextEdit->setTabStopWidth(pixelsFromSpaces(val));
+
+    plainTextUpdateDemo();
 }
 
 void PreferencesDialog::readSettings()
@@ -164,7 +178,11 @@ void PreferencesDialog::readSettings()
         pickUpFontSize(QFontInfo(ui->plainTextEdit->font()).pixelSize());
         ui->fontSizeSpinBox->setValue(QFontInfo(ui->plainTextEdit->font()).pixelSize());
 
-        m_mainWindow->setLogWidgetSettings(ui->plainTextEdit->font(), ui->plainTextEdit->palette());
+        int tabSize = m_settings.value(QLatin1String("tabSize"), 8).toInt();
+        ui->tabSizeSpinBox->setValue(tabSize);
+        pickUpTabSize(ui->tabSizeSpinBox->value());
+
+        m_mainWindow->setLogWidgetSettings(ui->plainTextEdit->font(), ui->plainTextEdit->palette(), pixelsFromSpaces(ui->tabSizeSpinBox->value()));
     }
     m_settings.endGroup();
 }
@@ -186,6 +204,33 @@ void PreferencesDialog::writeSettings()
         m_settings.setValue(QLatin1String("bgShade"), m_bgShade);
 
         m_settings.setValue(QLatin1String("font"), m_mainWindow->logWidgetFont().toString());
+
+        m_settings.setValue(QLatin1String("tabSize"), ui->tabSizeSpinBox->value());
     }
     m_settings.endGroup();
+}
+
+void PreferencesDialog::plainTextUpdateDemo()
+{
+    int tabStopWidthSpaces = ui->tabSizeSpinBox->value();
+
+    QString spaces;
+    for (int i = 0; i < tabStopWidthSpaces; ++i) {
+        spaces += " ";
+    }
+
+    ui->plainTextEdit->setPlainText(QString("Text shade: %1\nBackground shade: %2\n	this is tabbed text (%3 spaces, %4 pixels)\n%5this is space-padded text\n")
+                                    .arg(m_textShade).arg(m_bgShade)
+                                    .arg(tabStopWidthSpaces).arg(pixelsFromSpaces(tabStopWidthSpaces)).arg(spaces));
+}
+
+int PreferencesDialog::pixelsFromSpaces(int spaceCount)
+{
+    QString spaces;
+    for (int i = 0; i < spaceCount; ++i) {
+        spaces += " ";
+    }
+
+    QFontMetrics fm(ui->plainTextEdit->font());
+    return fm.width(spaces);
 }

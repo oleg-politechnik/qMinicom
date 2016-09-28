@@ -26,10 +26,13 @@ private slots:
     void pickUpBgShadeValue(int val);
     void pickUpFont(const QString &name);
     void pickUpFontSize(int val);
+    void pickUpTabSize(int val);
 
 private:
     void readSettings();
     void writeSettings();
+    void plainTextUpdateDemo();
+    int pixelsFromSpaces(int spaceCount);
 
     Ui::PreferencesDialog *ui;
 

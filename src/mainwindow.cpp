@@ -100,10 +100,11 @@ void MainWindow::openSerialDevice(const QString &portName, qint32 baudRate)
     }
 }
 
-void MainWindow::setLogWidgetSettings(const QFont &font, const QPalette &palette)
+void MainWindow::setLogWidgetSettings(const QFont &font, const QPalette &palette, int tabStopWidthPixels)
 {
     ui->logWidget->setFont(font);
     ui->logWidget->setPalette(palette);
+    ui->logWidget->setTabStopWidth(tabStopWidthPixels);
 }
 
 void MainWindow::readPort()

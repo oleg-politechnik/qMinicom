@@ -24,7 +24,7 @@ public:
 
 public slots:
     void openSerialDevice(const QString &portName, qint32 baudRate);
-    void setLogWidgetSettings(const QFont &font, const QPalette &palette);
+    void setLogWidgetSettings(const QFont &font, const QPalette &palette, int tabStopWidthPixels);
 
 private slots:
     void readPort();
