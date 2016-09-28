@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>914</width>
+    <height>454</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralWidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <property name="leftMargin">
+     <number>0</number>
+    </property>
+    <property name="topMargin">
+     <number>0</number>
+    </property>
+    <property name="rightMargin">
+     <number>0</number>
+    </property>
+    <property name="bottomMargin">
+     <number>0</number>
+    </property>
+    <item>
+     <widget class="PlainTextLog" name="logWidget">
+      <property name="undoRedoEnabled">
+       <bool>false</bool>
+      </property>
+      <property name="textInteractionFlags">
+       <set>Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>914</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuPrefs">
+    <property name="title">
+     <string>Application</string>
+    </property>
+    <addaction name="actionPrefs"/>
+   </widget>
+   <widget class="QMenu" name="menuLog">
+    <property name="title">
+     <string>Log</string>
+    </property>
+    <addaction name="actionClear"/>
+   </widget>
+   <addaction name="menuPrefs"/>
+   <addaction name="menuLog"/>
+  </widget>
+  <widget class="QStatusBar" name="statusBar"/>
+  <action name="actionPrefs">
+   <property name="text">
+    <string>&amp;Preferences</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::PreferencesRole</enum>
+   </property>
+  </action>
+  <action name="actionClear">
+   <property name="text">
+    <string>Clear</string>
+   </property>
+  </action>
+ </widget>
+ <layoutdefault spacing="6" margin="11"/>
+ <customwidgets>
+  <customwidget>
+   <class>PlainTextLog</class>
+   <extends>QPlainTextEdit</extends>
+   <header>plaintextlog.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>
