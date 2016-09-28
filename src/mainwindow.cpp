@@ -142,7 +142,7 @@ void MainWindow::customLogWidgetContextMenuRequested(const QPoint &pos)
 {
     const QPoint gpos = QWidget::mapToGlobal(pos);
 
-    QMenu *menu = ui->logWidget->createStandardContextMenu(gpos);
+    QMenu *menu = ui->logWidget->createStandardContextMenu();
     menu->addSeparator();
     menu->addAction(tr("Clear"), ui->logWidget, SLOT(clear()));
     menu->exec(gpos);
