@@ -13,12 +13,20 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
     this->setWindowTitle(QCoreApplication::applicationName());
 
+    ui->findWidget->setVisible(false);
+    connect(ui->findLineEdit, SIGNAL(textChanged(QString)), this, SLOT(updateSearch()));
+    connect(ui->csFindBtn, SIGNAL(toggled(bool)), this, SLOT(updateSearch()));
+
     ui->logWidget->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->logWidget, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(customLogWidgetContextMenuRequested(QPoint)));
+    m_highlighter = new SearchHighlighter(ui->logWidget->document());
 
     connect(m_port, SIGNAL(readyRead()), this, SLOT(readPort()));
     connect(m_port, SIGNAL(aboutToClose()), this, SLOT(portAboutToClose()));
     connect(ui->actionClear, SIGNAL(triggered(bool)), ui->logWidget, SLOT(clear()));
+
+    ui->actionFind->setShortcut(QKeySequence(QKeySequence::Find));
+    connect(ui->actionFind, SIGNAL(triggered(bool)), this, SLOT(setFindWidgetVisible(bool)));
 
     //
 
@@ -107,6 +115,21 @@ void MainWindow::setLogWidgetSettings(const QFont &font, const QPalette &palette
     ui->logWidget->setTabStopWidth(tabStopWidthPixels);
 }
 
+void MainWindow::keyPressEvent(QKeyEvent *event)
+{
+    QMainWindow::keyPressEvent(event); // try processing by the parent class first
+
+    if (!event->isAccepted())
+    {
+        if (event->type() == QEvent::KeyPress && event->key() == Qt::Key_Escape && ui->findWidget->isVisible())
+        {
+            setFindWidgetVisible(false);
+            ui->actionFind->setChecked(false);
+            event->accept();
+        }
+    }
+}
+
 void MainWindow::readPort()
 {
     QString text = m_port->readAll();
@@ -141,6 +164,30 @@ void MainWindow::customLogWidgetContextMenuRequested(const QPoint &pos)
     menu->exec(gpos);
 
     delete menu;
+}
+
+void MainWindow::setFindWidgetVisible(bool visible)
+{
+    ui->findWidget->setVisible(visible);
+
+    if (visible)
+    {
+        ui->findLineEdit->setFocus();
+    }
+
+    updateSearch();
+}
+
+void MainWindow::updateSearch()
+{
+    if (ui->findWidget->isVisible())
+    {
+        m_highlighter->setSearchPhrase(ui->findLineEdit->text(), ui->csFindBtn->isChecked());
+    }
+    else
+    {
+        m_highlighter->setSearchPhrase(QString(), ui->csFindBtn->isChecked());
+    }
 }
 
 void MainWindow::readSettings()

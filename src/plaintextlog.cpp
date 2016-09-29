@@ -1,22 +1,11 @@
 #include "plaintextlog.h"
 
-#include <QMenu>
 #include <QScrollBar>
-#include <QDebug>
 
 PlainTextLog::PlainTextLog(QWidget *parent) :
     QPlainTextEdit(parent)
 {
 }
-
-//void PlainTextLog::contextMenuEvent(QContextMenuEvent *event)
-//{
-//    QMenu *menu = createStandardContextMenu(event->globalPos());
-//    menu->addSeparator();
-//    menu->addAction(tr("Clear"), this, SLOT(clear()));
-//    menu->exec(event->globalPos());
-//    delete menu;
-//}
 
 //
 // http://stackoverflow.com/a/13560475

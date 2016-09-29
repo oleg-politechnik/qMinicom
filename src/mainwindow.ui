@@ -15,6 +15,9 @@
   </property>
   <widget class="QWidget" name="centralWidget">
    <layout class="QVBoxLayout" name="verticalLayout">
+    <property name="spacing">
+     <number>0</number>
+    </property>
     <property name="leftMargin">
      <number>0</number>
     </property>
@@ -28,13 +31,51 @@
      <number>0</number>
     </property>
     <item>
-     <widget class="PlainTextLog" name="logWidget">
-      <property name="undoRedoEnabled">
-       <bool>false</bool>
+     <layout class="QHBoxLayout" name="horizontalLayout">
+      <item>
+       <widget class="PlainTextLog" name="logWidget">
+        <property name="undoRedoEnabled">
+         <bool>false</bool>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <widget class="QWidget" name="findWidget" native="true">
+      <property name="enabled">
+       <bool>true</bool>
       </property>
-      <property name="textInteractionFlags">
-       <set>Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
-      </property>
+      <layout class="QHBoxLayout" name="horizontalLayout_3">
+       <property name="leftMargin">
+        <number>6</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>6</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QToolButton" name="csFindBtn">
+         <property name="text">
+          <string notr="true">aA</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="findLineEdit"/>
+       </item>
+      </layout>
      </widget>
     </item>
    </layout>
@@ -59,6 +100,7 @@
      <string>Log</string>
     </property>
     <addaction name="actionClear"/>
+    <addaction name="actionFind"/>
    </widget>
    <addaction name="menuPrefs"/>
    <addaction name="menuLog"/>
@@ -75,6 +117,14 @@
   <action name="actionClear">
    <property name="text">
     <string>Clear</string>
+   </property>
+  </action>
+  <action name="actionFind">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Find</string>
    </property>
   </action>
  </widget>

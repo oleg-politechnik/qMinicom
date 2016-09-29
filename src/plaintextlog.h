@@ -2,14 +2,14 @@
 #define PLAINTEXTLOG_H
 
 #include <QPlainTextEdit>
+#include <QObject>
 
 class PlainTextLog : public QPlainTextEdit
 {
-public:
-    explicit PlainTextLog(QWidget *parent = Q_NULLPTR);
+    Q_OBJECT
 
-//protected:
-//    void contextMenuEvent(QContextMenuEvent *event);
+public:
+    explicit PlainTextLog(QWidget *parent = 0);
 
 public slots:
     void appendTextNoNewline(const QString &text);

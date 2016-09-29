@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include "preferencesdialog.h"
+#include "searchhighlighter.h"
 
 #include <QMainWindow>
 #include <QSerialPort>
@@ -26,11 +27,16 @@ public slots:
     void openSerialDevice(const QString &portName, qint32 baudRate);
     void setLogWidgetSettings(const QFont &font, const QPalette &palette, int tabStopWidthPixels);
 
+protected:
+    void keyPressEvent(QKeyEvent* event);
+
 private slots:
     void readPort();
     void updatePortStatus(bool isOpen);
     void portAboutToClose();
     void customLogWidgetContextMenuRequested(const QPoint &pos);
+    void setFindWidgetVisible(bool visible);
+    void updateSearch();
 
 private:
     Ui::MainWindow *ui;
@@ -38,6 +44,8 @@ private:
     PreferencesDialog *dlgPrefs;
 
     QSerialPort *m_port;
+
+    SearchHighlighter *m_highlighter;
 
     void writeSettings();
     void readSettings();

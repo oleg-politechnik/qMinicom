@@ -15,11 +15,13 @@ TEMPLATE = app
 SOURCES += main.cpp\
         mainwindow.cpp \
     preferencesdialog.cpp \
-    plaintextlog.cpp
+    plaintextlog.cpp \
+    searchhighlighter.cpp
 
 HEADERS  += mainwindow.h \
     preferencesdialog.h \
-    plaintextlog.h
+    plaintextlog.h \
+    searchhighlighter.h
 
 FORMS    += mainwindow.ui \
     preferencesdialog.ui
