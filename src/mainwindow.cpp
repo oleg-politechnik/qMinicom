@@ -30,7 +30,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     //
 
-    updatePortStatus(false);
+    updatePortStatus(m_port->isOpen());
 
     //
 
@@ -51,6 +51,7 @@ MainWindow::~MainWindow()
     if (m_port->isOpen())
     {
         m_port->close();
+        qDebug() << "port" << m_port->portName() << "closed";
     }
 
     delete ui;
@@ -78,21 +79,24 @@ void MainWindow::openSerialDevice(const QString &portName, qint32 baudRate)
         if (m_port->portName() != portName)
         {
             m_port->close();
+            qDebug() << "port" << m_port->portName() << "closed";
+        }
+        else if (m_port->baudRate() != baudRate)
+        {
+            m_port->setBaudRate(baudRate);
+            qDebug() << "port" << m_port->portName() << "@" << baudRate << "opened";
+            updatePortStatus(m_port->isOpen());
         }
     }
 
-    if (m_port->isOpen())
-    {
-        updatePortStatus(true);
-    }
-    else
+    if (!m_port->isOpen())
     {
         m_port->setPortName(portName);
 
         if (!m_port->open(QSerialPort::ReadWrite))
         {
             qDebug() << "ERROR Can't open" << m_port->portName();
-            updatePortStatus(false);
+            updatePortStatus(m_port->isOpen());
         }
         else
         {
@@ -101,9 +105,12 @@ void MainWindow::openSerialDevice(const QString &portName, qint32 baudRate)
             m_port->setParity(QSerialPort::NoParity); // todo if
             m_port->setStopBits(QSerialPort::OneStop); // todo if
             m_port->setFlowControl(QSerialPort::NoFlowControl); // todo if
+
             m_port->setBaudRate(baudRate);
 
-            updatePortStatus(true);
+            qDebug() << "port" << m_port->portName() << "@" << baudRate << "opened";
+
+            updatePortStatus(m_port->isOpen());
         }
     }
 }
@@ -141,12 +148,27 @@ void MainWindow::readPort()
 
 void MainWindow::updatePortStatus(bool isOpen)
 {
+    QString msg;
+
     if (!m_port->portName().isEmpty())
     {
-        qDebug() << "port" << m_port->portName() << (isOpen ? "opened" : "closed");
+        msg += tr("%1 ").arg(m_port->portName());
 
-        ui->statusBar->showMessage(tr("%1 8N1 | %2 | %3").arg(m_port->baudRate()).arg(isOpen ? "ONLINE" : "OFFLINE").arg(m_port->portName()));
+        if (isOpen)
+        {
+            msg += tr("| %1").arg(m_port->baudRate());
+        }
+        else
+        {
+            msg += tr("| OFFLINE");
+        }
     }
+    else
+    {
+        msg += tr("OFFLINE");
+    }
+
+    ui->statusBar->showMessage(msg);
 }
 
 void MainWindow::portAboutToClose()

@@ -147,6 +147,7 @@ void PreferencesDialog::readSettings()
 
         qint32 baudRate = m_settings.value(QLatin1String("baudRate"), ui->cmbSpeed->itemText(0)).toInt();
         ui->cmbSpeed->setCurrentIndex(ui->cmbSpeed->findText(QString("%1").arg(baudRate)));
+        baudRate = ui->cmbSpeed->currentText().toInt();
 
         m_mainWindow->openSerialDevice(port, baudRate);
     }
@@ -194,7 +195,7 @@ void PreferencesDialog::writeSettings()
     m_settings.beginGroup(QLatin1String("SerialPort"));
     {
         m_settings.setValue(QLatin1String("portName"), m_mainWindow->currentPortName());
-        m_settings.setValue(QLatin1String("baudRate"), ui->cmbSpeed->itemText(0));
+        m_settings.setValue(QLatin1String("baudRate"), ui->cmbSpeed->currentText());
     }
     m_settings.endGroup();
 
