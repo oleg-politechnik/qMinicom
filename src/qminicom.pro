@@ -21,7 +21,8 @@ SOURCES += main.cpp\
 HEADERS  += mainwindow.h \
     preferencesdialog.h \
     plaintextlog.h \
-    searchhighlighter.h
+    searchhighlighter.h \
+    logblockcustomdata.h
 
 FORMS    += mainwindow.ui \
     preferencesdialog.ui

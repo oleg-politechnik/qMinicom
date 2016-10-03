@@ -2,7 +2,6 @@
 #define MAINWINDOW_H
 
 #include "preferencesdialog.h"
-#include "searchhighlighter.h"
 
 #include <QMainWindow>
 #include <QSerialPort>
@@ -39,16 +38,12 @@ private slots:
     void updateSearch();
 
 private:
-    Ui::MainWindow *ui;
-
-    PreferencesDialog *dlgPrefs;
-
-    QSerialPort *m_port;
-
-    SearchHighlighter *m_highlighter;
-
     void writeSettings();
     void readSettings();
+
+    Ui::MainWindow *ui;
+    PreferencesDialog *dlgPrefs;
+    QSerialPort *m_port;
 };
 
 #endif // MAINWINDOW_H

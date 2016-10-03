@@ -2,6 +2,7 @@
 #include "ui_mainwindow.h"
 
 #include <QDebug>
+#include <QGraphicsScene>
 #include <QScrollBar>
 #include <QtSerialPort/QtSerialPort>
 
@@ -16,10 +17,16 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->findWidget->setVisible(false);
     connect(ui->findLineEdit, SIGNAL(textChanged(QString)), this, SLOT(updateSearch()));
     connect(ui->csFindBtn, SIGNAL(toggled(bool)), this, SLOT(updateSearch()));
+    connect(ui->findNextBtn, SIGNAL(clicked(bool)), ui->logWidget, SLOT(findNext()));
+    connect(ui->findLineEdit, SIGNAL(returnPressed()), ui->logWidget, SLOT(findNext()));
+    connect(ui->findPrevBtn, SIGNAL(clicked(bool)), ui->logWidget, SLOT(findPrev()));
 
     ui->logWidget->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->logWidget, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(customLogWidgetContextMenuRequested(QPoint)));
-    m_highlighter = new SearchHighlighter(ui->logWidget->document());
+
+    QGraphicsScene *m_scene = new QGraphicsScene(this);
+    ui->logWidget->attachSideMarkScene(m_scene);
+    ui->sideMarkView->setScene(m_scene);
 
     connect(m_port, SIGNAL(readyRead()), this, SLOT(readPort()));
     connect(m_port, SIGNAL(aboutToClose()), this, SLOT(portAboutToClose()));
@@ -190,11 +197,19 @@ void MainWindow::customLogWidgetContextMenuRequested(const QPoint &pos)
 
 void MainWindow::setFindWidgetVisible(bool visible)
 {
+    QScrollBar *p_scroll_bar = ui->logWidget->verticalScrollBar();
+    bool was_at_bottom = (p_scroll_bar->value() == p_scroll_bar->maximum());
+
     ui->findWidget->setVisible(visible);
 
     if (visible)
     {
+        if (was_at_bottom)
+        {
+            p_scroll_bar->setValue(p_scroll_bar->maximum());
+        }
         ui->findLineEdit->setFocus();
+        ui->findLineEdit->selectAll();
     }
 
     updateSearch();
@@ -204,11 +219,11 @@ void MainWindow::updateSearch()
 {
     if (ui->findWidget->isVisible())
     {
-        m_highlighter->setSearchPhrase(ui->findLineEdit->text(), ui->csFindBtn->isChecked());
+        ui->logWidget->setSearchPhrase(ui->findLineEdit->text(), ui->csFindBtn->isChecked());
     }
     else
     {
-        m_highlighter->setSearchPhrase(QString(), ui->csFindBtn->isChecked());
+        ui->logWidget->setSearchPhrase(QString(), ui->csFindBtn->isChecked());
     }
 }
 
