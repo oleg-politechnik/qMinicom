@@ -21,9 +21,6 @@ public:
     QString searchPhrase() const;
     bool isCaseSensitive() const;
 
-signals:
-    void blockHighlighted(int fragmentIndex);
-
 private:
     QString m_searchPhrase;
     bool m_isCaseSensitive;

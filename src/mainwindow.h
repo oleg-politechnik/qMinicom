@@ -36,6 +36,7 @@ private slots:
     void customLogWidgetContextMenuRequested(const QPoint &pos);
     void setFindWidgetVisible(bool visible);
     void updateSearch();
+    void sendChar(char ch);
 
 private:
     void writeSettings();

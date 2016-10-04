@@ -40,11 +40,11 @@
         <property name="undoRedoEnabled">
          <bool>false</bool>
         </property>
-        <property name="plainText">
-         <string/>
+        <property name="readOnly">
+         <bool>true</bool>
         </property>
         <property name="textInteractionFlags">
-         <set>Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
+         <set>Qt::TextSelectableByMouse</set>
         </property>
        </widget>
       </item>

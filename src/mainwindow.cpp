@@ -23,9 +23,10 @@ MainWindow::MainWindow(QWidget *parent) :
 
     ui->logWidget->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->logWidget, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(customLogWidgetContextMenuRequested(QPoint)));
+    connect(ui->logWidget, SIGNAL(sendChar(char)), this, SLOT(sendChar(char)));
 
     QGraphicsScene *m_scene = new QGraphicsScene(this);
-    ui->logWidget->attachSideMarkScene(m_scene);
+    ui->logWidget->setSideMarkScene(m_scene);
     ui->sideMarkView->setScene(m_scene);
 
     connect(m_port, SIGNAL(readyRead()), this, SLOT(readPort()));
@@ -146,11 +147,7 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
 
 void MainWindow::readPort()
 {
-    QString text = m_port->readAll();
-
-    text.replace("\r", "");
-
-    ui->logWidget->appendTextNoNewline(text);
+    ui->logWidget->appendBytes(m_port->readAll());
 }
 
 void MainWindow::updatePortStatus(bool isOpen)
@@ -225,6 +222,12 @@ void MainWindow::updateSearch()
     {
         ui->logWidget->setSearchPhrase(QString(), ui->csFindBtn->isChecked());
     }
+}
+
+void MainWindow::sendChar(char ch)
+{
+    //ui->logWidget->appendTextNoNewline(QString(QChar(ch)));
+    m_port->write(QByteArray().append(ch));
 }
 
 void MainWindow::readSettings()
