@@ -43,7 +43,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->actionClearToLine, SIGNAL(triggered(bool)), ui->logWidget, SLOT(clearToCurrentContextMenuLine()));
 
     ui->actionFind->setShortcut(QKeySequence(QKeySequence::Find));
-    connect(ui->actionFind, SIGNAL(triggered(bool)), this, SLOT(setFindWidgetVisible(bool)));
+    connect(ui->actionFind, SIGNAL(triggered(bool)), this, SLOT(showFindWidget()));
 
     ui->statusBar->addPermanentWidget(ui->labelStatus, 1);
 
@@ -85,10 +85,9 @@ const QFont &MainWindow::logWidgetFont()
     return ui->logWidget->font();
 }
 
-void MainWindow::setLogWidgetSettings(const QFont &font, const QPalette &palette, int tabStopWidthPixels)
+void MainWindow::setLogWidgetSettings(const QFont &font, int tabStopWidthPixels)
 {
     ui->logWidget->setFont(font);
-    ui->logWidget->setPalette(palette);
     ui->logWidget->setTabStopWidth(tabStopWidthPixels);
 }
 
@@ -170,6 +169,11 @@ void MainWindow::setFindWidgetVisible(bool visible)
     }
 
     updateSearch();
+}
+
+void MainWindow::showFindWidget()
+{
+    setFindWidgetVisible(true);
 }
 
 void MainWindow::updateSearch()

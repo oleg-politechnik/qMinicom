@@ -11,9 +11,32 @@ PlainTextLog::PlainTextLog(QWidget *parent) :
     QPlainTextEdit(parent),
     m_highlighter(new SearchHighlighter(this)),
     m_sideMarkScene(Q_NULLPTR),
+    m_decoder(Q_NULLPTR),
     m_caret(QTextCursor(document()->lastBlock()))
 {
+    const QString rx = "\\^\\[(?:\\[(?:(\\d*)(H)|(?:(\\d*)(?:;(\\d*))*)(m)|(?:(r))|(?:(\\d+);(\\d+)([rfH]))|(?:(\\d*)([ABCD]))|(?:([012]*)([JK]))|(?:\\?(\\d+)([hl]))|(?:([0]?)(c)))|([=>])|([()][0B])|([78M])|(#8))(.*)";
+
+    m_vt100escReV = new QRegularExpressionValidator(QRegularExpression(rx), this);
+
     this->setFocusPolicy(Qt::StrongFocus); // helps catching 'Control' key events on macOS
+    this->setUndoRedoEnabled(false);
+    this->setLineWrapMode(QPlainTextEdit::NoWrap);
+    this->setReadOnly(true);
+    this->setTextInteractionFlags(Qt::TextSelectableByMouse);
+
+    clear();
+
+    QPalette palette = this->palette();
+    palette.setColor(QPalette::Text, m_caret.blockCharFormat().foreground().color());
+    palette.setColor(QPalette::Base, m_caret.blockCharFormat().background().color());
+    setPalette(palette);
+
+    // tests
+
+    //appendBytes("\x1B[2J@\x1B[12B@\x1B[12C@\x1B[2J");
+    //appendBytes("\x1B[2J@\x1B[D\x1B[12B@\x1B[D\x1B[12C@\x1B[D\x1B[6B$\x1B[D\x1B[0J\x1B[6A\x1B[0J");
+    //appendBytes("\x1B[2J@\x1B[D\x1B[12B@\x1B[D\x1B[12C@\x1B[D\x1B[D\x1B[1J");
+    //appendBytes("\x1B[H\x1B#8\x1B[2J");
 }
 
 void PlainTextLog::setSideMarkScene(QGraphicsScene *sideMarkScene)
@@ -138,33 +161,96 @@ void PlainTextLog::find(bool backward)
 
 void PlainTextLog::sendVT100EscSeq(PlainTextLog::VT100EscapeCode code)
 {
+    if (code >= VT100_EC_FN_START && code <= VT100_EC_FN_END && !m_cursorMode)
+    {
+        qDebug() << "Error:" << code << "is not supported for Cursor Mode = Cursor";
+        return;
+    }
+
     QByteArray ba;
-    ba.append(0x1B); // ESC
-    ba.append('[');
+    ba.append(0x1B); // <ESC>
 
     switch(code)
     {
+    case VT100_EC_DA_VT102:
+        ba.append('[');
+        ba.append('?');
+        ba.append('6');
+        ba.append('c');
+        break;
+
+    case VT100_EC_ESC:
+        ba.append('[');
+        break;
+
     case VT100_EC_UP:
+        ba.append(m_cursorMode ? 'O' : '[');
         ba.append('A');
         break;
 
     case VT100_EC_DOWN:
+        ba.append(m_cursorMode ? 'O' : '[');
         ba.append('B');
         break;
 
     case VT100_EC_RIGHT:
+        ba.append(m_cursorMode ? 'O' : '[');
         ba.append('C');
         break;
 
     case VT100_EC_LEFT:
+        ba.append(m_cursorMode ? 'O' : '[');
         ba.append('D');
         break;
 
+    case VT100_EC_F1:
+        ba.append('O');
+        ba.append('P');
+        break;
+
+    case VT100_EC_F2:
+        ba.append('O');
+        ba.append('Q');
+        break;
+
+    case VT100_EC_F3:
+        ba.append('O');
+        ba.append('R');
+        break;
+
+    case VT100_EC_F4:
+        ba.append('O');
+        ba.append('S');
+        break;
+
     default:
+        {
+            qDebug() << "Error: unknown VT100EscapeCode" << code;
+            return;
+        }
         break;
     }
 
     emit sendBytes(ba);
+}
+
+void PlainTextLog::moveCaretToTheStartOfTheScreen()
+{
+    QTextBlock tb = document()->findBlockByNumber(m_cursorRelativeCoordinates ? m_screenScrollingRegionTop : m_screenTopLine);
+    if (!tb.isValid())
+    {
+        if (m_cursorRelativeCoordinates)
+        {
+            qDebug() << "Error: m_screenScrollingRegionTop =" << m_screenScrollingRegionTop << "block count = " << document()->blockCount();
+        }
+        else
+        {
+            qDebug() << "Error: m_screenTopLine =" << m_screenTopLine << "block count = " << document()->blockCount();
+        }
+        tb = document()->lastBlock();
+    }
+
+    m_caret = QTextCursor(tb);
 }
 
 void PlainTextLog::findNext()
@@ -179,20 +265,241 @@ void PlainTextLog::findPrev()
 
 void PlainTextLog::caretBackspace()
 {
-    if (m_caret.atBlockStart())
+    moveCaretToTheLeftBy(1);
+}
+
+void PlainTextLog::setCaretBrightness(bool bright)
+{
+    m_caretBrightness = bright;
+    updateCaretAttributes();
+}
+
+void PlainTextLog::setCaretInvertedColors(bool invert)
+{
+    m_caretInvertedColors = invert;
+    updateCaretAttributes();
+}
+
+void PlainTextLog::setCaretUnderline(bool underline)
+{
+    m_caretUnderline = underline;
+    updateCaretAttributes();
+}
+
+void PlainTextLog::setCaretForeground(PlainTextLog::AnsiColor ansiColor)
+{
+    m_caretFgColor = ansiColor;
+    updateCaretAttributes();
+}
+
+void PlainTextLog::setCaretBackround(PlainTextLog::AnsiColor ansiColor)
+{
+    m_caretBgColor = ansiColor;
+    updateCaretAttributes();
+}
+
+bool PlainTextLog::setScrollingRegion(int top, int bottom)
+{
+    if (bottom > top && top >= 0 && bottom < terminalScreenHeight)
     {
-        qDebug() << "Warning: attempt to cross the text block start boundary";
-        return;
+        m_screenScrollingRegionTop = top;
+        m_screenScrollingRegionBottom = bottom;
+        moveCaretToTheStartOfTheScreen();
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+void PlainTextLog::resetCaretAttributes()
+{
+    m_caretBrightness = false;
+    m_caretUnderline = false;
+    m_caretInvertedColors = false;
+    m_caretFgColor = ANSI_WHITE;
+    m_caretBgColor = ANSI_BLACK;
+    updateCaretAttributes();
+}
+
+void PlainTextLog::updateCaretAttributes()
+{
+    m_tcfm.setFontUnderline(m_caretUnderline);
+    if (m_caretInvertedColors)
+    {
+        m_tcfm.setForeground(QBrush(QColor(ansiColorToRgb(m_caretBgColor, m_caretBrightness))));
+        m_tcfm.setBackground(QBrush(QColor(ansiColorToRgb(m_caretFgColor, false))));
+    }
+    else
+    {
+        m_tcfm.setForeground(QBrush(QColor(ansiColorToRgb(m_caretFgColor, m_caretBrightness))));
+        m_tcfm.setBackground(QBrush(QColor(ansiColorToRgb(m_caretBgColor, false))));
+    }
+}
+
+void PlainTextLog::resetTextDecoder()
+{
+    if (m_decoder)
+    {
+        delete m_decoder;
+    }
+    m_decoder = new QTextDecoder(QTextCodec::codecForName("UTF-8")); // everyone should use utf8, right?
+}
+
+QRgb PlainTextLog::ansiColorToRgb(PlainTextLog::AnsiColor ansiColor, bool isBright)
+{
+    QRgb rgb;
+
+    switch (ansiColor)
+    {
+    case ANSI_BLACK:    rgb = isBright ? 0x686868 : 0x000000;      break;
+    case ANSI_RED:      rgb = isBright ? 0xFF6F6B : 0xC91B00;      break;
+    case ANSI_GREEN:    rgb = isBright ? 0x67F86F : 0x00C120;      break;
+    case ANSI_YELLOW:   rgb = isBright ? 0xFFFA72 : 0xC7C327;      break;
+    case ANSI_BLUE:     rgb = isBright ? 0x6A76FC : 0x0A2FC4;      break;
+    case ANSI_MAGENTA:  rgb = isBright ? 0xFF7CFD : 0xC839C5;      break;
+    case ANSI_CYAN:     rgb = isBright ? 0x68FDFE : 0x01C5C6;      break;
+    case ANSI_WHITE:    rgb = isBright ? 0xFFFFFF : 0xC7C7C7;      break;
     }
 
-    m_caret.deletePreviousChar();
+    //qDebug() << __FUNCTION__ << ansiColor << isBright << "->" << rgb;
+
+    return rgb;
 }
 
 void PlainTextLog::clear()
 {
     m_escSeq.clear();
 
+    resetTextDecoder();
+
     QPlainTextEdit::clear();
+
+    m_screenTopLine = 0;
+    m_cursorRelativeCoordinates = false;
+
+    setScrollingRegion(0, terminalScreenHeight - 1);
+
+    m_cursorMode = true;//XXX false;
+
+    resetCaretAttributes();
+}
+
+void PlainTextLog::moveCaretToTheRightBy(int chars)
+{
+    Q_ASSERT(chars >= 0);
+
+    int blockLength = m_caret.block().text().length();
+    int pos = m_caret.positionInBlock();
+
+    // qDebug() << "pos:" << pos << "chars:" << chars << "blockLength:" << blockLength;
+
+    if (pos + chars <= blockLength)
+    {
+        m_caret.movePosition(QTextCursor::NextCharacter, QTextCursor::MoveAnchor, chars);
+    }
+    else
+    {
+        m_caret.movePosition(QTextCursor::EndOfBlock); // fixme force repaint caret
+
+        int append = pos + chars - blockLength;
+
+        //qDebug() << "appending symbols:" << append;
+
+        insertTextAtCaret(QString(append, ' '));
+    }
+}
+
+void PlainTextLog::moveCaretToTheLeftBy(int chars)
+{
+    Q_ASSERT(chars >= 0);
+
+    if (m_caret.positionInBlock() < chars)
+    {
+        qDebug() << "Warning: attempt to cross the text block start boundary by" << chars - m_caret.positionInBlock() << "symbols";
+        moveCaretToTheFirstColumn();
+    }
+    else
+    {
+        m_caret.movePosition(QTextCursor::Left, QTextCursor::MoveAnchor, chars);
+    }
+}
+
+void PlainTextLog::moveCaretToTheFirstColumn()
+{
+    m_caret.movePosition(QTextCursor::StartOfBlock);
+}
+
+void PlainTextLog::moveCaretUpwardsBy(int lines)
+{
+    Q_ASSERT(lines >= 0);
+
+    int col_was = m_caret.positionInBlock();
+
+    if (m_caret.blockNumber() + (m_cursorRelativeCoordinates ? m_screenScrollingRegionTop : m_screenTopLine) < lines)
+    {
+        qDebug() << "Warning: attempt to cross the screen start boundary by" << lines - (m_caret.blockNumber() + (m_cursorRelativeCoordinates ? m_screenScrollingRegionTop : m_screenTopLine)) << "lines";
+        qDebug() << "TODO implement sticky edge";
+    }
+    else
+    {
+        QTextBlock tb = document()->findBlockByNumber(m_caret.blockNumber() + (m_cursorRelativeCoordinates ? m_screenScrollingRegionTop : m_screenTopLine) - lines);
+        Q_ASSERT(tb.isValid());
+        m_caret = QTextCursor(tb);
+        moveCaretToTheRightBy(col_was);
+    }
+}
+
+void PlainTextLog::moveCaretDownwardsBy(int lines)
+{
+    Q_ASSERT(lines >= 0);
+
+    // scroll -- take old scrollbar value
+    QScrollBar *p_scroll_bar = this->verticalScrollBar();
+    bool bool_at_bottom = (p_scroll_bar->value() == p_scroll_bar->maximum());
+
+    // TODO check for terminalScreenHeight
+
+    int blocks = document()->blockCount();
+    int blockIx = m_caret.blockNumber();
+
+    //qDebug() << blockIx << lines << blocks;
+
+    int col_was = m_caret.positionInBlock();
+
+    if (blockIx + lines >= blocks)
+    {
+        int append = blockIx + lines - blocks + 1;
+
+        QTextCursor cur(document()->lastBlock());
+        cur.movePosition(QTextCursor::EndOfBlock);
+
+        for (int i = 0; i < append; ++i)
+        {
+            cur.insertBlock();
+        }
+
+        if (document()->blockCount() != blockIx + lines + 1)
+        {
+            qDebug() << "Error: appended" << append << "but got" << document()->blockCount() << "blockIx" << blockIx << lines;
+        }
+    }
+
+    QTextBlock tb = document()->findBlockByNumber(blockIx + lines);
+    if (!tb.isValid())
+    {
+        qDebug() << "Error:" << __FUNCTION__ << lines << "invalid block at" << blockIx + lines << "document()->blockCount() = " << document()->blockCount();
+        tb = document()->lastBlock();
+    }
+    m_caret = QTextCursor(tb);
+    moveCaretToTheRightBy(col_was);
+
+    // scroll down if needed
+    if (bool_at_bottom)
+    {
+        p_scroll_bar->setValue(p_scroll_bar->maximum());
+    }
 }
 
 void PlainTextLog::clearToCurrentContextMenuLine()
@@ -242,6 +549,20 @@ void PlainTextLog::keyPressEvent(QKeyEvent *e)
 {
     QString t = e->text();
 
+    switch (e->key())
+    {
+    case Qt::Key_F1: sendVT100EscSeq(VT100_EC_F1); return;
+    case Qt::Key_F2: sendVT100EscSeq(VT100_EC_F2); return;
+    case Qt::Key_F3: sendVT100EscSeq(VT100_EC_F3); return;
+    case Qt::Key_F4: sendVT100EscSeq(VT100_EC_F4); return;
+    case Qt::Key_F5: sendVT100EscSeq(VT100_EC_F5); return;
+    case Qt::Key_F6: sendVT100EscSeq(VT100_EC_F6); return;
+    case Qt::Key_F7: sendVT100EscSeq(VT100_EC_F7); return;
+    case Qt::Key_F8: sendVT100EscSeq(VT100_EC_F8); return;
+    case Qt::Key_F9: sendVT100EscSeq(VT100_EC_F9); return;
+    case Qt::Key_F10:sendVT100EscSeq(VT100_EC_F10); return;
+    }
+
     //qDebug() << e->key() << e->modifiers() << t;
 
     const Qt::KeyboardModifier ctrlKeyModifier =
@@ -276,7 +597,7 @@ void PlainTextLog::keyPressEvent(QKeyEvent *e)
                 // ..................
                 // (0x5A) -> ^Z -> 26
 
-                qDebug() << QString("sending ctrl-seq: ^%1").arg((char) e->key()).toUpper();
+                //qDebug() << QString("sending ctrl-seq: ^%1").arg((char) e->key());
                 char code = e->key() - 0x40;
 
                 emit sendBytes(QByteArray().append(code));
@@ -336,7 +657,7 @@ void PlainTextLog::paintEvent(QPaintEvent *e)
     if (m_caret.block().isVisible())
     {
         QPainter p(viewport());
-        p.fillRect(this->cursorRect(m_caret), QBrush(this->palette().color(QPalette::Text)));
+        p.fillRect(this->cursorRect(m_caret), m_tcfm.foreground());
     }
 }
 
@@ -371,42 +692,66 @@ void PlainTextLog::resizeMark(QGraphicsRectItem *item, const QTextBlock &block)
 
 void PlainTextLog::appendBytes(const QByteArray &bytes)
 {
-    QString text;
+    //
+    // With a great help of: http://www.vt100.net/docs/vt102-ug/appendixc.html
+    //                       http://www.vt100.net/docs/vt100-ug
+    //
 
-    for (int i = 0; i < bytes.size(); ++i)
+    QRect caretWasRect = this->cursorRect(m_caret);
+
+    //qDebug() << bytes;
+
+    for (int i = 0; i < bytes.size();)
     {
         unsigned char c = bytes.at(i);
+        i++;
 
         if (!m_escSeq.isEmpty())
         {
             m_escSeq += c;
 
-            QRegExp re("\\^\\[\\[(?:(K)|(?:(\\d)(?:;(\\d+))*)*(m))");
+#if 0
+            while (i < bytes.size() && bytes.at(i) > ' ' && bytes.at(i) < 0x7F) // only ascii symbols excluding ' ' (space)
+            {
+                //TODO handle non-ascii sequences properly
 
-            QRegExpValidator v(re);
+                m_escSeq += bytes.at(i);
+                i++;
+            }
+#endif
 
             int pos = 0;
-            QValidator::State st = v.validate(m_escSeq, pos);
+            QValidator::State st = m_vt100escReV->validate(m_escSeq, pos);
 
-            qDebug() << "Checking" << m_escSeq << "with" << v.regExp().pattern() << "->" << st;
+            //qDebug() << "Checking" << m_escSeq << "->" << st;
 
             if (st == QRegExpValidator::Invalid)
             {
-                text += m_escSeq;
-                qDebug() << "Warning: unknown" << m_escSeq << "sequence";
+                insertTextAtCaret(m_escSeq);
+                qDebug() << QString("Warning: unknown VT100 sequence %1%2").arg(m_escSeq).arg(QString(bytes.right(bytes.size() - i).left(16)));
                 m_escSeq.clear();
             }
             else if (st == QRegExpValidator::Acceptable)
             {
-                if (!re.exactMatch(m_escSeq))
+                //qDebug() << m_escSeq;
+
+                QRegularExpressionMatch m = m_vt100escReV->regularExpression().match(m_escSeq);
+
+                if (!m.isValid())
                 {
-                    qDebug() << "Error: " << m_escSeq << " is accepted by QRegExpValidator(" << v.regExp().pattern() << "), but rejected by QRegExp::exactMatch";
+                    qDebug() << "Error: " << m_escSeq << " is accepted by QRegExpValidator(" << m_vt100escReV->regularExpression().pattern() << "), but rejected by QRegExp::exactMatch";
                 }
                 else
                 {
-                    QStringList list = re.capturedTexts();
+                    QStringList args = m.capturedTexts();
 
-                    QMutableListIterator<QString> i(list);
+                    //qDebug() << args;
+
+                    QString remainder = args.last();
+                    Q_ASSERT(remainder.isEmpty()); // XXX
+                    args.removeLast();
+
+                    QMutableListIterator<QString> i(args);
                     while (i.hasNext())
                     {
                         QString &s = i.next();
@@ -416,26 +761,470 @@ void PlainTextLog::appendBytes(const QByteArray &bytes)
                         }
                     }
 
-                    qDebug() << "Detected" << m_escSeq << "sequence, args:" << list;
+                    QString cmd = args.last();
+                    args.removeLast();
 
-                    QString &cmd = list.last();
+                    if (args.at(0) == m_escSeq)
+                    {
+                        args.removeFirst();
+                    }
+
+                    // get rid of the junk at the end of the captured esc sequence
+                    m_escSeq.remove(m_escSeq.length() - remainder.length(), remainder.length());
+
+                    //qDebug() << "Detected" << cmd << "command, args:" << args;
 
                     if (cmd == "K")
                     {
-                        // clear eol
-                        m_caret.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
-                        qDebug() << "Removing" << m_caret.selectedText();
-                        m_caret.removeSelectedText();
+                        if (args.isEmpty() || args.at(0) == "0")
+                        {
+                            // clear eol
+                            m_caret.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+                            m_caret.removeSelectedText();
+                        }
+                        else if (args.at(0) == "1")
+                        {
+                            int pos = m_caret.positionInBlock();
+                            moveCaretToTheRightBy(pos);
+                            insertTextAtCaret(QString(pos, ' '));
+                        }
+                        else
+                        {
+                            qDebug() << "Not supported:" << m_escSeq;
+                        }
+                    }
+                    else if (cmd == "J")
+                    {
+                        if (args.isEmpty() || (args.size() == 1 && args.at(0) == "0"))
+                        {
+                            // clear eol
+                            m_caret.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+                            m_caret.removeSelectedText();
+
+                            // clear all the lines below (XXX only down to the screen?)
+                            QTextBlock bl = m_caret.block().next();
+                            while (bl.isValid()) {
+                                QTextCursor cur(bl);
+                                cur.select(QTextCursor::BlockUnderCursor);
+                                cur.removeSelectedText();
+                                bl = bl.next();
+                            }
+                        }
+                        else if (args.size() == 1 && args.at(0) == "1")
+                        {
+                            int col_was = m_caret.positionInBlock();
+                            int row_was = m_caret.blockNumber() - m_screenTopLine;
+                            Q_ASSERT(row_was >= 0);
+
+                            //qDebug() << "was #" << col_was << row_was;
+
+                            QTextBlock block = document()->findBlockByNumber(m_screenTopLine);
+                            Q_ASSERT(block.isValid());
+
+                            for (int line = 0; line < row_was; ++line)
+                            {
+                                Q_ASSERT(block.isValid());
+
+                                QTextCursor cur(block);
+                                cur.insertText(" ");
+                                cur.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+                                cur.removeSelectedText();
+
+                                block = block.next();
+                            }
+
+                            int col_is = m_caret.positionInBlock();
+                            int row_is = m_caret.blockNumber() - m_screenTopLine;
+                            Q_ASSERT(col_is == col_was);
+                            Q_ASSERT(row_is == row_was);
+
+                            moveCaretToTheFirstColumn();
+
+                            QString s;
+                            for (int i = 0; i < col_was + 1; ++i) // erase including the cursor position
+                            {
+                                s += " ";
+                            }
+                            insertTextAtCaret(s);
+
+                            moveCaretToTheLeftBy(1);
+                        }
+                        else if (args.size() == 1 && args.at(0) == "2")
+                        {
+                            int col_was = m_caret.positionInBlock();
+                            int row_was = m_caret.blockNumber() - m_screenTopLine;
+                            Q_ASSERT(row_was >= 0);
+
+                            QTextBlock block = document()->findBlockByNumber(m_screenTopLine);
+                            Q_ASSERT(block.isValid());
+
+                            for (int line = 0; line < terminalScreenHeight; ++line)
+                            {
+                                if (!block.isValid())
+                                {
+                                    break;
+                                }
+
+                                QTextCursor cur(block);
+                                cur.insertText(" ");
+                                cur.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+                                cur.removeSelectedText();
+
+                                block = block.next();
+                            }
+
+                            moveCaretToTheFirstColumn();
+                            moveCaretToTheRightBy(col_was);
+
+                            int col_is = m_caret.positionInBlock();
+                            int row_is = m_caret.blockNumber() - m_screenTopLine;
+                            Q_ASSERT(col_is == col_was);
+                            Q_ASSERT(row_is == row_was);
+                        }
+                        else
+                        {
+                            qDebug() << "Not supported:" << m_escSeq;
+                        }
                     }
                     else if (cmd == "m")
                     {
-                        qDebug() << "Warning: m-sequence is not supported yet";
+                        if (args.isEmpty())
+                        {
+                            resetCaretAttributes();
+                        }
+                        else if (args.at(0) == "38")
+                        {
+                            // extended color table
+                            qDebug() << "Not supported:" << m_escSeq;
+                        }
+                        else
+                        {
+                            foreach (QString param, args)
+                            {
+                                int p = param.toInt();
+
+                                switch (p)
+                                {
+                                case 0:  resetCaretAttributes();            break;
+                                case 1:  setCaretBrightness(true);          break;
+                                case 4:  setCaretUnderline(true);           break;
+                                case 7:  setCaretInvertedColors(true);      break;
+
+                                case 30: setCaretForeground(ANSI_BLACK);    break;
+                                case 31: setCaretForeground(ANSI_RED);      break;
+                                case 32: setCaretForeground(ANSI_GREEN);    break;
+                                case 33: setCaretForeground(ANSI_YELLOW);   break;
+                                case 34: setCaretForeground(ANSI_BLUE);     break;
+                                case 35: setCaretForeground(ANSI_MAGENTA);  break;
+                                case 36: setCaretForeground(ANSI_CYAN);     break;
+                                case 37: setCaretForeground(ANSI_WHITE);    break;
+
+                                case 40: setCaretBackround(ANSI_BLACK);     break;
+                                case 41: setCaretBackround(ANSI_RED);       break;
+                                case 42: setCaretBackround(ANSI_GREEN);     break;
+                                case 43: setCaretBackround(ANSI_YELLOW);    break;
+                                case 44: setCaretBackround(ANSI_BLUE);      break;
+                                case 45: setCaretBackround(ANSI_MAGENTA);   break;
+                                case 46: setCaretBackround(ANSI_CYAN);      break;
+                                case 47: setCaretBackround(ANSI_WHITE);     break;
+
+                                case 2: //Dim
+                                case 5: //Blink
+                                case 8: //Hidden
+                                default:
+                                    qDebug() << "Not supported: m-sequence param" << p << "of" << m_escSeq << "escape sequence";
+                                    break;
+                                }
+                            }
+                        }
                     }
                     else
                     {
-                        qDebug() << "Error: unknown sequence";
-                    }
+                        qDebug() << m_escSeq;
 
+                        //qDebug() << "Detected" << m_escSeq << "sequence, args:" << list;
+
+                        if (cmd == "=")
+                        {
+                            qDebug() << QString("Not supported: 'Application Keypad Mode' %1").arg(m_escSeq);
+                        }
+                        else if (cmd == ">")
+                        {
+                            qDebug() << QString("Not supported: 'Numeric Keypad Mode' %1").arg(m_escSeq);
+                        }
+                        else if (cmd == ")0")
+                        {
+                            qDebug() << QString("Not supported: 'Set G1 special chars. & line set' %1").arg(m_escSeq);
+                        }
+                        else if (cmd == "(B")
+                        {
+                            qDebug() << QString("Not supported: 'Set United States G0 character set' %1").arg(m_escSeq);
+                        }
+                        else if (cmd == "H" || cmd == "f")
+                        {
+                            if (args.isEmpty())
+                            {
+                                moveCaretToTheStartOfTheScreen();
+                            }
+                            else if (args.length() == 1)
+                            {
+                                qDebug() << QString("Not supported: '?fH' %1").arg(m_escSeq);
+                            }
+                            else
+                            {
+                                Q_ASSERT(args.length() == 2);
+
+                                bool ok_row = false;
+                                int row = args.at(0).toInt(&ok_row) - 1;
+
+                                bool ok_col = false;
+                                int column = args.at(1).toInt(&ok_col) - 1;
+
+                                if (!ok_row || !ok_col || row < 0 || column < 0)
+                                {
+                                    qDebug() << "Error: Invalid params" << m_escSeq;
+                                }
+                                else
+                                {
+                                    //qDebug() << m_escSeq << "m_screenTopLine = " << m_screenTopLine;
+                                    moveCaretToTheStartOfTheScreen();
+
+                                    if (m_cursorRelativeCoordinates)
+                                    {
+                                        // relative positioning
+                                        row += m_screenScrollingRegionTop;
+                                        if (row > m_screenScrollingRegionBottom)
+                                        {
+                                            qDebug() << QString("Warning: trying to position caret outside (%1) of the scrolling region (%2,%3)")
+                                                        .arg(row).arg(m_screenScrollingRegionTop).arg(m_screenScrollingRegionBottom);
+                                            row = m_screenScrollingRegionBottom;
+                                        }
+                                    }
+
+                                    moveCaretDownwardsBy(row);
+                                    moveCaretToTheRightBy(column);
+
+                                    if (m_caret.blockNumber() != row + m_screenTopLine || m_caret.positionInBlock() != column)
+                                    {
+                                        qDebug() << QString("Error: Cursor positioned to (%1,%2) instead of (%3,%4)")
+                                                    .arg(m_caret.blockNumber()).arg(m_caret.positionInBlock())
+                                                    .arg(row).arg(column);
+                                    }
+
+                                    //qDebug() << m_escSeq << QString("Cursor: row=%1, col=%2; Scroll region: top=%3, bottom=%4")
+                                    //            .arg(m_caret.blockNumber() - m_screenTopLine).arg(m_caret.positionInBlock())
+                                    //            .arg(m_screenScrollingRegionTop).arg(m_screenScrollingRegionBottom);
+                                }
+                            }
+                        }
+                        else if (cmd == "A")
+                        {
+                            int lines = 1;
+                            if (!args.isEmpty())
+                            {
+                                lines = args.at(0).toInt(); // todo add check
+                            }
+                            moveCaretUpwardsBy(lines);
+                        }
+                        else if (cmd == "B")
+                        {
+                            int lines = 1;
+                            if (!args.isEmpty())
+                            {
+                                lines = args.at(0).toInt(); // todo add check
+                            }
+                            moveCaretDownwardsBy(lines);
+                        }
+                        else if (cmd == "C")
+                        {
+                            int chars = 1;
+                            if (!args.isEmpty())
+                            {
+                                chars = args.at(0).toInt(); // todo add check
+                            }
+                            moveCaretToTheRightBy(chars);
+                        }
+                        else if (cmd == "D")
+                        {
+                            int chars = 1;
+                            if (!args.isEmpty())
+                            {
+                                chars = args.at(0).toInt(); // todo add check
+                            }
+                            moveCaretToTheLeftBy(chars);
+                        }
+                        else if (cmd == "M")
+                        {
+                            // Move the active position to the same horizontal position on the preceding line.
+                            // If the active position is at the top margin, a scroll down is performed.
+
+                            qDebug() << m_escSeq << QString("Cursor: row=%1, col=%2; Scroll region: top=%3, bottom=%4")
+                                        .arg(m_caret.blockNumber() - m_screenTopLine).arg(m_caret.positionInBlock())
+                                        .arg(m_screenScrollingRegionTop).arg(m_screenScrollingRegionBottom);
+
+                            if (m_caret.blockNumber() - m_screenTopLine == m_screenScrollingRegionTop)
+                            {
+                                //
+                            }
+                            else
+                            {
+                                //
+                            }
+                        }
+                        else if (cmd == "?")
+                        {
+                            qDebug() << QString("Not supported: '?' %1").arg(m_escSeq);
+                        }
+                        else if (cmd == "r")
+                        {
+                            if (args.length() == 2)
+                            {
+                                bool ok_start;
+                                int start = args.at(0).toInt(&ok_start) - 1;
+
+                                bool ok_end;
+                                int end = args.at(1).toInt(&ok_end) - 1;
+
+                                if (!ok_start || !ok_end || !setScrollingRegion(start, end))
+                                {
+                                    qDebug() << "Error: Invalid params" << m_escSeq;
+                                }
+                            }
+                            else if (args.length() == 0)
+                            {
+                                setScrollingRegion(0, terminalScreenHeight - 1);
+                            }
+                            else
+                            {
+                                qDebug() << args.length();
+                                Q_ASSERT(0);
+                            }
+                        }
+                        else if (cmd == "c")
+                        {
+                            sendVT100EscSeq(VT100_EC_DA_VT102);
+                        }
+                        else if (cmd == "h")
+                        {
+                            Q_ASSERT(args.length() == 1);
+
+                            bool ok;
+                            int arg = args.at(0).toInt(&ok);
+
+                            if (!ok)
+                            {
+                                qDebug() << "Error: Invalid params" << m_escSeq;
+                            }
+                            else
+                            {
+                                switch (arg)
+                                {
+                                case 1:
+                                    m_cursorMode = true;
+                                    break;
+
+                                case 4:
+                                    qDebug() << "Not supported: 'Set smooth scroll'";
+                                    break;
+
+                                case 6:
+                                    // relative caret coordinates (independent of scrolling region)
+                                    m_cursorRelativeCoordinates = true;
+                                    break;
+
+                                case 7:
+                                    qDebug() << "Not supported: 'Set auto-wrap mode'";
+                                    break;
+
+                                case 40:
+                                default:
+                                    qDebug() << "Not supported:" << m_escSeq;
+                                    break;
+                                }
+                            }
+                        }
+                        else if (cmd == "l")
+                        {
+                            Q_ASSERT(args.length() == 1);
+
+                            bool ok;
+                            int arg = args.at(0).toInt(&ok);
+
+                            if (!ok)
+                            {
+                                qDebug() << "Error: Invalid params" << m_escSeq;
+                            }
+                            else
+                            {
+                                switch (arg)
+                                {
+                                case 1:
+                                    m_cursorMode = false;
+                                    break;
+
+                                case 3:
+                                    Q_ASSERT(terminalScreenWidth == 80); // todo implement reset to 80 columns
+                                    break;
+
+                                case 4:
+                                    // select jump scroll (as opposed to smooth scroll)
+                                    break;
+
+                                case 5:
+                                    // normal screen -- white on black;
+                                    break;
+
+                                case 6:
+                                    // absolute caret coordinates (independent of scrolling region)
+                                    m_cursorRelativeCoordinates = false;
+                                    break;
+
+                                case 7:
+                                    qDebug() << "Not supported: 'Reset auto-wrap mode'";
+                                    break;
+
+                                case 8:
+                                    // turn off auto repeat
+                                    break;
+
+                                case 45:
+                                default:
+                                    qDebug() << "Not supported:" << m_escSeq;
+                                    break;
+                                }
+                            }
+                        }
+                        else if (cmd == "#8")
+                        {
+                            moveCaretToTheStartOfTheScreen();
+
+                            for (int row = 0; ; ++row)
+                            {
+                                QString str;
+
+                                for (int col = 0; col < terminalScreenWidth; ++col)
+                                {
+                                    str += 'E';
+                                }
+
+                                insertTextAtCaret(str);
+
+                                if (row == terminalScreenHeight - 1)
+                                    break;
+
+                                moveCaretToTheFirstColumn(); // \r
+                                moveCaretDownwardsBy(1); // \n
+                            }
+                        }
+                        else
+                        {
+                            qDebug() << "Not supported:" << m_escSeq;
+                        }
+                    }
+                    if (!remainder.isEmpty())
+                    {
+                        insertTextAtCaret(remainder);
+                    }
                 }
                 m_escSeq.clear();
             }
@@ -446,7 +1235,33 @@ void PlainTextLog::appendBytes(const QByteArray &bytes)
         }
         else if (c >= 0x20)
         {
-            text += c;
+            QString str;
+
+            str += m_decoder->toUnicode((const char *) &c, 1);
+
+            if (m_decoder->hasFailure())
+            {
+                qDebug() << "Error: m_decoder->hasFailure";
+                resetTextDecoder();
+            }
+
+            while (i < bytes.size() && bytes.at(i) >= ' ')
+            {
+                c = bytes.at(i);
+                str += m_decoder->toUnicode((const char *) &c, 1);
+                i++;
+
+                if (m_decoder->hasFailure())
+                {
+                    qDebug() << "Error: m_decoder->hasFailure";
+                    resetTextDecoder();
+                }
+            }
+
+            if (!str.isEmpty())
+            {
+                insertTextAtCaret(str);
+            }
         }
         else
         {
@@ -455,10 +1270,14 @@ void PlainTextLog::appendBytes(const QByteArray &bytes)
             case '\0':
                 break;
 
+            case 0x0F:
+                //TODO support
+                break;
+
             case 0x1B:
                 if (!m_escSeq.isEmpty())
                 {
-                    text += m_escSeq;
+                    insertTextAtCaret(m_escSeq);
                     qDebug() << "Warning: aborted" << m_escSeq << "sequence";
                     m_escSeq.clear();
                 }
@@ -471,11 +1290,12 @@ void PlainTextLog::appendBytes(const QByteArray &bytes)
                 break;
 
             case '\n':
-                text += c;
+                //qDebug() << "\\n";
+                moveCaretDownwardsBy(1);
                 break;
 
             case '\t':
-                text += c;
+                insertTextAtCaret(QString(c)); // FIXME
                 break;
 
             case '\b':
@@ -483,45 +1303,42 @@ void PlainTextLog::appendBytes(const QByteArray &bytes)
                 break;
 
             case '\r':
+                //qDebug() << "\\r";
+                moveCaretToTheFirstColumn();
                 break;
 
             default:
-                text += QString("\\u00%1").arg(c, 2, 16, QChar('0'));
+                insertTextAtCaret(QString("\\u00%1").arg(c, 2, 16, QChar('0')));
                 break;
             }
         }
     }
 
-    appendTextNoNewline(text);
+    QRect caretIsRect = this->cursorRect(m_caret);
+
+    if (caretIsRect != caretWasRect)
+    {
+        viewport()->repaint(); // TODO: make it more efficient
+    }
 }
 
-//
-// http://stackoverflow.com/a/13560475
-//
-void PlainTextLog::appendTextNoNewline(const QString &text)
+void PlainTextLog::insertTextAtCaret(const QString &text)
 {
-    // scroll -- take old scrollbar value
-    QScrollBar *p_scroll_bar = this->verticalScrollBar();
-    bool bool_at_bottom = (p_scroll_bar->value() == p_scroll_bar->maximum());
-
-    QTextCursor text_cursor = QTextCursor(this->document());
-    text_cursor.beginEditBlock();
+    if (text.isEmpty())
     {
-        text_cursor.movePosition(QTextCursor::End);
-
-        QStringList string_list = text.split('\n');
-
-        for (int i = 0; i < string_list.size(); i++){
-            text_cursor.insertText(string_list.at(i));
-            if ((i + 1) < string_list.size()){
-                text_cursor.insertBlock();
-            }
-        }
+        qDebug() << "Warning: inserting empty text";
+        return;
     }
-    text_cursor.endEditBlock();
 
-    if (bool_at_bottom)
+    int toRemove = qMin(m_caret.block().text().length() - m_caret.positionInBlock(), text.length());
+
+    //qDebug() << text;
+
+    m_caret.beginEditBlock();
     {
-        p_scroll_bar->setValue(p_scroll_bar->maximum());
+        m_caret.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, toRemove);
+        m_caret.removeSelectedText();
+        m_caret.insertText(text, m_tcfm);
     }
+    m_caret.endEditBlock();
 }

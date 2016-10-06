@@ -27,8 +27,6 @@ public slots:
     void accept();
 
 private slots:
-    void pickUpTextShadeValue(int val);
-    void pickUpBgShadeValue(int val);
     void pickUpFont(const QString &name);
     void pickUpFontSize(int val);
     void pickUpTabSize(int val);

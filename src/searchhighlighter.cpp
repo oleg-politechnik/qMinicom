@@ -30,6 +30,7 @@ void SearchHighlighter::highlightBlock(const QString &text)
         int index = text.indexOf(m_searchPhrase, 0, m_isCaseSensitive ? Qt::CaseSensitive : Qt::CaseInsensitive);
         if (index >= 0)
         {
+            // set block data for drawing the sidebar markers
             data = m_textLog->highlightBlock(this->currentBlock());
 
             while (index >= 0) {

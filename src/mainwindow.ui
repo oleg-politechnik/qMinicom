@@ -36,17 +36,7 @@
        <number>0</number>
       </property>
       <item>
-       <widget class="PlainTextLog" name="logWidget">
-        <property name="undoRedoEnabled">
-         <bool>false</bool>
-        </property>
-        <property name="readOnly">
-         <bool>true</bool>
-        </property>
-        <property name="textInteractionFlags">
-         <set>Qt::TextSelectableByMouse</set>
-        </property>
-       </widget>
+       <widget class="PlainTextLog" name="logWidget"/>
       </item>
       <item>
        <widget class="QGraphicsView" name="sideMarkView">
@@ -173,10 +163,11 @@
    </widget>
    <widget class="QMenu" name="menuLog">
     <property name="title">
-     <string>Log</string>
+     <string>Terminal</string>
     </property>
-    <addaction name="actionClear"/>
     <addaction name="actionFind"/>
+    <addaction name="separator"/>
+    <addaction name="actionClear"/>
    </widget>
    <addaction name="menuPrefs"/>
    <addaction name="menuLog"/>
@@ -196,9 +187,6 @@
    </property>
   </action>
   <action name="actionFind">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
    <property name="text">
     <string>Find</string>
    </property>

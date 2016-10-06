@@ -28,7 +28,8 @@ signals:
     void closePort();
 
 public slots:
-    void setLogWidgetSettings(const QFont &font, const QPalette &palette, int tabStopWidthPixels);
+    //void openSerialDevice(const QString &portName, qint32 baudRate);
+    void setLogWidgetSettings(const QFont &font, int tabStopWidthPixels);
 
 protected:
     void keyPressEvent(QKeyEvent* event);
@@ -37,6 +38,7 @@ private slots:
     void updatePortStatus(AsyncSerialPort::Status st, const QString &pn, qint32 br);
     void customLogWidgetContextMenuRequested(const QPoint &pos);
     void setFindWidgetVisible(bool visible);
+    void showFindWidget(void);
     void updateSearch();
 
 private:
