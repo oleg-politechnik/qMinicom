@@ -16,13 +16,15 @@ SOURCES += main.cpp\
         mainwindow.cpp \
     preferencesdialog.cpp \
     plaintextlog.cpp \
-    searchhighlighter.cpp
+    searchhighlighter.cpp \
+    asyncserialport.cpp
 
 HEADERS  += mainwindow.h \
     preferencesdialog.h \
     plaintextlog.h \
     searchhighlighter.h \
-    logblockcustomdata.h
+    logblockcustomdata.h \
+    asyncserialport.h
 
 FORMS    += mainwindow.ui \
     preferencesdialog.ui

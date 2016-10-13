@@ -127,30 +127,33 @@ void PlainTextLog::find(bool backward)
 
 void PlainTextLog::sendVT100EscSeq(PlainTextLog::VT100EscapeCode code)
 {
-    emit sendChar(0x1B); // ESC
-    emit sendChar('[');
+    QByteArray ba;
+    ba.append(0x1B); // ESC
+    ba.append('[');
 
     switch(code)
     {
     case VT100_EC_UP:
-        emit sendChar('A');
+        ba.append('A');
         break;
 
     case VT100_EC_DOWN:
-        emit sendChar('B');
+        ba.append('B');
         break;
 
     case VT100_EC_RIGHT:
-        emit sendChar('C');
+        ba.append('C');
         break;
 
     case VT100_EC_LEFT:
-        emit sendChar('D');
+        ba.append('D');
         break;
 
     default:
         break;
     }
+    
+    emit sendBytes(ba);
 }
 
 void PlainTextLog::findNext()
@@ -244,7 +247,7 @@ void PlainTextLog::keyPressEvent(QKeyEvent *e)
                 qDebug() << QString("sending ctrl-seq: ^%1").arg((char) e->key()).toUpper();
                 char code = e->key() - 0x40;
 
-                emit sendChar(code);
+                emit sendBytes(QByteArray().append(code));
 
                 return; // we've handled that
             }
@@ -262,7 +265,7 @@ void PlainTextLog::keyPressEvent(QKeyEvent *e)
             //qDebug() << "bksp";
         }
 
-        emit sendChar(ch.toLatin1());
+        emit sendBytes(QByteArray().append(ch.toLatin1()));
 
         return; // we've handled that
     }
@@ -436,6 +439,10 @@ void PlainTextLog::appendBytes(const QByteArray &bytes)
                 break;
 
             case '\n':
+                text += c;
+                break;
+
+            case '\t':
                 text += c;
                 break;
 

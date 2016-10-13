@@ -52,6 +52,8 @@ PreferencesDialog::PreferencesDialog(MainWindow *parent) :
 
     //
 
+    connect(this, SIGNAL(openPort(QString,qint32)), m_mainWindow, SIGNAL(openPort(QString,qint32)));
+
     readSettings();
 }
 
@@ -84,7 +86,7 @@ void PreferencesDialog::accept()
 {
     QDialog::accept();
 
-    m_mainWindow->openSerialDevice(ui->cmbDevice->currentText(), ui->cmbSpeed->currentText().toUInt());
+    emit openPort(ui->cmbDevice->currentText(), ui->cmbSpeed->currentText().toUInt());
     m_mainWindow->setLogWidgetSettings(ui->plainTextEdit->font(), ui->plainTextEdit->palette(), pixelsFromSpaces(ui->tabSizeSpinBox->value()));
 }
 
@@ -143,13 +145,13 @@ void PreferencesDialog::readSettings()
 
     m_settings.beginGroup(QLatin1String("SerialPort"));
     {
-        QString port = m_settings.value(QLatin1String("portName"), "").toString();
+        QString pn = m_settings.value(QLatin1String("portName"), "").toString();
 
-        qint32 baudRate = m_settings.value(QLatin1String("baudRate"), ui->cmbSpeed->itemText(0)).toInt();
-        ui->cmbSpeed->setCurrentIndex(ui->cmbSpeed->findText(QString("%1").arg(baudRate)));
-        baudRate = ui->cmbSpeed->currentText().toInt();
+        qint32 br = m_settings.value(QLatin1String("baudRate"), ui->cmbSpeed->itemText(0)).toInt();
+        ui->cmbSpeed->setCurrentIndex(ui->cmbSpeed->findText(QString("%1").arg(br)));
+        br = ui->cmbSpeed->currentText().toInt();
 
-        m_mainWindow->openSerialDevice(port, baudRate);
+        emit openPort(pn, br);
     }
     m_settings.endGroup();
 
@@ -233,5 +235,6 @@ int PreferencesDialog::pixelsFromSpaces(int spaceCount)
     }
 
     QFontMetrics fm(ui->plainTextEdit->font());
+
     return fm.width(spaces);
 }

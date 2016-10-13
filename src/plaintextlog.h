@@ -28,7 +28,7 @@ public:
     LogBlockCustomData *highlightBlock(const QTextBlock &block);
 
 signals:
-    void sendChar(char s);
+    void sendBytes(const QByteArray &bytes);
 
 public slots:
     void appendBytes(const QByteArray &bytes);

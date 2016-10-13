@@ -1,6 +1,8 @@
 #ifndef PREFERENCESDIALOG_H
 #define PREFERENCESDIALOG_H
 
+#include "asyncserialport.h"
+
 #include <QDialog>
 
 class MainWindow;
@@ -14,8 +16,11 @@ class PreferencesDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit PreferencesDialog(MainWindow *parent = 0);
+    explicit PreferencesDialog(MainWindow *parent);
     ~PreferencesDialog();
+
+signals:
+    void openPort(const QString &pn, qint32 br);
 
 public slots:
     void open();

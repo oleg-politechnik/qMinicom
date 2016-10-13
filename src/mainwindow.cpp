@@ -8,11 +8,22 @@
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
-    ui(new Ui::MainWindow),
-    m_port(new QSerialPort(this))
+    ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
     this->setWindowTitle(QCoreApplication::applicationName());
+
+    qRegisterMetaType<AsyncSerialPort::Status>("AsyncSerialPort::Status");
+
+    AsyncSerialPort *serialPort = new AsyncSerialPort();
+    serialPort->moveToThread(&m_asyncSerialPortThread);
+    connect(&m_asyncSerialPortThread, SIGNAL(started()), serialPort, SLOT(initialize()));
+    connect(this, SIGNAL(openPort(QString,qint32)), serialPort, SLOT(openPort(QString,qint32)));
+    connect(this, SIGNAL(closePort()), serialPort, SLOT(closePort()));
+    connect(serialPort, SIGNAL(statusChanged(AsyncSerialPort::Status,QString,qint32)),
+            this, SLOT(updatePortStatus(AsyncSerialPort::Status,QString,qint32)));
+    connect(serialPort, SIGNAL(dataReceived(QByteArray)), ui->logWidget, SLOT(appendBytes(QByteArray)));
+    connect(ui->logWidget, SIGNAL(sendBytes(QByteArray)), serialPort, SLOT(sendData(QByteArray)));
 
     ui->findWidget->setVisible(false);
     connect(ui->findLineEdit, SIGNAL(textChanged(QString)), this, SLOT(updateSearch()));
@@ -23,14 +34,11 @@ MainWindow::MainWindow(QWidget *parent) :
 
     ui->logWidget->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->logWidget, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(customLogWidgetContextMenuRequested(QPoint)));
-    connect(ui->logWidget, SIGNAL(sendChar(char)), this, SLOT(sendChar(char)));
 
     QGraphicsScene *m_scene = new QGraphicsScene(this);
     ui->logWidget->setSideMarkScene(m_scene);
     ui->sideMarkView->setScene(m_scene);
 
-    connect(m_port, SIGNAL(readyRead()), this, SLOT(readPort()));
-    connect(m_port, SIGNAL(aboutToClose()), this, SLOT(portAboutToClose()));
     connect(ui->actionClear, SIGNAL(triggered(bool)), ui->logWidget, SLOT(clear()));
 
     ui->actionFind->setShortcut(QKeySequence(QKeySequence::Find));
@@ -38,89 +46,40 @@ MainWindow::MainWindow(QWidget *parent) :
 
     //
 
-    updatePortStatus(m_port->isOpen());
-
-    //
-
     readSettings();
 
     //
 
-    this->dlgPrefs = new PreferencesDialog(this);
-    connect(ui->actionPrefs, SIGNAL(triggered(bool)), this->dlgPrefs, SLOT(open()));
+    m_asyncSerialPortThread.start(QThread::HighestPriority);
+
+    //
+
+    m_dlgPrefs = new PreferencesDialog(this);
+    connect(ui->actionPrefs, SIGNAL(triggered(bool)), m_dlgPrefs, SLOT(open()));
 }
 
 MainWindow::~MainWindow()
 {
     writeSettings();
 
-    delete this->dlgPrefs;
+    delete m_dlgPrefs;
 
-    if (m_port->isOpen())
-    {
-        m_port->close();
-        qDebug() << "port" << m_port->portName() << "closed";
-    }
+    emit closePort();
 
     delete ui;
+
+    m_asyncSerialPortThread.quit();
+    m_asyncSerialPortThread.wait();
 }
 
-const QString MainWindow::currentPortName()
+const QString &MainWindow::currentPortName()
 {
-    return m_port->portName();
+    return m_portName;
 }
 
 const QFont &MainWindow::logWidgetFont()
 {
     return ui->logWidget->font();
-}
-
-void MainWindow::openSerialDevice(const QString &portName, qint32 baudRate)
-{
-    if (portName.isEmpty())
-    {
-        return;
-    }
-
-    if (m_port->isOpen())
-    {
-        if (m_port->portName() != portName)
-        {
-            m_port->close();
-            qDebug() << "port" << m_port->portName() << "closed";
-        }
-        else if (m_port->baudRate() != baudRate)
-        {
-            m_port->setBaudRate(baudRate);
-            qDebug() << "port" << m_port->portName() << "@" << baudRate << "opened";
-            updatePortStatus(m_port->isOpen());
-        }
-    }
-
-    if (!m_port->isOpen())
-    {
-        m_port->setPortName(portName);
-
-        if (!m_port->open(QSerialPort::ReadWrite))
-        {
-            qDebug() << "ERROR Can't open" << m_port->portName();
-            updatePortStatus(m_port->isOpen());
-        }
-        else
-        {
-            m_port->setParity(QSerialPort::NoParity); // todo if
-            m_port->setDataBits(QSerialPort::Data8); // todo if
-            m_port->setParity(QSerialPort::NoParity); // todo if
-            m_port->setStopBits(QSerialPort::OneStop); // todo if
-            m_port->setFlowControl(QSerialPort::NoFlowControl); // todo if
-
-            m_port->setBaudRate(baudRate);
-
-            qDebug() << "port" << m_port->portName() << "@" << baudRate << "opened";
-
-            updatePortStatus(m_port->isOpen());
-        }
-    }
 }
 
 void MainWindow::setLogWidgetSettings(const QFont &font, const QPalette &palette, int tabStopWidthPixels)
@@ -145,39 +104,32 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
     }
 }
 
-void MainWindow::readPort()
-{
-    ui->logWidget->appendBytes(m_port->readAll());
-}
-
-void MainWindow::updatePortStatus(bool isOpen)
+void MainWindow::updatePortStatus(AsyncSerialPort::Status st, const QString &pn, qint32 br)
 {
     QString msg;
 
-    if (!m_port->portName().isEmpty())
-    {
-        msg += tr("%1 ").arg(m_port->portName());
+    m_portName = pn;
 
-        if (isOpen)
+    if (!pn.isEmpty())
+    {
+        msg += tr("%1 ").arg(pn);
+
+        if (st == AsyncSerialPort::Online)
         {
-            msg += tr("| %1").arg(m_port->baudRate());
+            msg += tr("| %1").arg(br);
         }
         else
         {
-            msg += tr("| OFFLINE");
+            msg += "| ";
+            msg += AsyncSerialPort::convertStatusToQString(st);
         }
     }
     else
     {
-        msg += tr("OFFLINE");
+        msg += AsyncSerialPort::convertStatusToQString(st);
     }
 
     ui->statusBar->showMessage(msg);
-}
-
-void MainWindow::portAboutToClose()
-{
-    updatePortStatus(false);
 }
 
 void MainWindow::customLogWidgetContextMenuRequested(const QPoint &pos)
@@ -222,12 +174,6 @@ void MainWindow::updateSearch()
     {
         ui->logWidget->setSearchPhrase(QString(), ui->csFindBtn->isChecked());
     }
-}
-
-void MainWindow::sendChar(char ch)
-{
-    //ui->logWidget->appendTextNoNewline(QString(QChar(ch)));
-    m_port->write(QByteArray().append(ch));
 }
 
 void MainWindow::readSettings()
