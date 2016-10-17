@@ -147,6 +147,13 @@
       </layout>
      </widget>
     </item>
+    <item>
+     <widget class="QLabel" name="labelStatus">
+      <property name="text">
+       <string>TextLabel</string>
+      </property>
+     </widget>
+    </item>
    </layout>
   </widget>
   <widget class="QMenuBar" name="menuBar">
@@ -194,6 +201,11 @@
    </property>
    <property name="text">
     <string>Find</string>
+   </property>
+  </action>
+  <action name="actionClearToLine">
+   <property name="text">
+    <string>Clear to this line</string>
    </property>
   </action>
  </widget>

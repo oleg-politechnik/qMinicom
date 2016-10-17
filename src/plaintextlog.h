@@ -27,6 +27,8 @@ public:
     void setSideMarkScene(QGraphicsScene *sideMarkScene);
     LogBlockCustomData *highlightBlock(const QTextBlock &block);
 
+    void setContextMenuTextCursor(const QTextCursor &cur);
+
 signals:
     void sendBytes(const QByteArray &bytes);
 
@@ -38,6 +40,7 @@ public slots:
     void findPrev();
     void caretBackspace();
     void clear();
+    void clearToCurrentContextMenuLine();
 
 protected:
     void resizeEvent(QResizeEvent *e);
@@ -54,6 +57,7 @@ private:
     QGraphicsScene *m_sideMarkScene;
     QString m_escSeq;
     QTextCursor m_caret;
+    QTextCursor m_contextMenuTextCursor;
 };
 
 #endif // PLAINTEXTLOG_H

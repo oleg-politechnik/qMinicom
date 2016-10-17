@@ -40,9 +40,12 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->sideMarkView->setScene(m_scene);
 
     connect(ui->actionClear, SIGNAL(triggered(bool)), ui->logWidget, SLOT(clear()));
+    connect(ui->actionClearToLine, SIGNAL(triggered(bool)), ui->logWidget, SLOT(clearToCurrentContextMenuLine()));
 
     ui->actionFind->setShortcut(QKeySequence(QKeySequence::Find));
     connect(ui->actionFind, SIGNAL(triggered(bool)), this, SLOT(setFindWidgetVisible(bool)));
+
+    ui->statusBar->addPermanentWidget(ui->labelStatus, 1);
 
     //
 
@@ -129,7 +132,7 @@ void MainWindow::updatePortStatus(AsyncSerialPort::Status st, const QString &pn,
         msg += AsyncSerialPort::convertStatusToQString(st);
     }
 
-    ui->statusBar->showMessage(msg);
+    ui->labelStatus->setText(msg);
 }
 
 void MainWindow::customLogWidgetContextMenuRequested(const QPoint &pos)
@@ -138,8 +141,13 @@ void MainWindow::customLogWidgetContextMenuRequested(const QPoint &pos)
 
     QMenu *menu = ui->logWidget->createStandardContextMenu();
     menu->addSeparator();
-    menu->addAction(tr("Clear"), ui->logWidget, SLOT(clear()));
-    menu->exec(gpos);
+    menu->addAction(ui->actionClear);
+    menu->addAction(ui->actionClearToLine);
+
+    QTextCursor cur = ui->logWidget->cursorForPosition(pos);
+    ui->logWidget->setContextMenuTextCursor(cur);
+
+    menu->exec(gpos); // blocking operation
 
     delete menu;
 }

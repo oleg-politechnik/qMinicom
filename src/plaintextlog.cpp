@@ -44,13 +44,24 @@ LogBlockCustomData *PlainTextLog::highlightBlock(const QTextBlock &block)
     return lbData;
 }
 
+void PlainTextLog::setContextMenuTextCursor(const QTextCursor &cur)
+{
+    m_contextMenuTextCursor = cur;
+}
+
 void PlainTextLog::setSearchPhrase(const QString &phrase, bool caseSensitive)
 {
-    m_sideMarkScene->clear();
+    if (m_sideMarkScene)
+    {
+        m_sideMarkScene->clear();
+    }
 
     m_highlighter->setSearchPhrase(phrase, caseSensitive);
 
-    m_sideMarkScene->setSceneRect(0,0,0,height()); // sync scene coordinates
+    if (m_sideMarkScene)
+    {
+        m_sideMarkScene->setSceneRect(0,0,0,height()); // sync scene coordinates
+    }
 }
 
 void PlainTextLog::find(bool backward)
@@ -152,7 +163,7 @@ void PlainTextLog::sendVT100EscSeq(PlainTextLog::VT100EscapeCode code)
     default:
         break;
     }
-    
+
     emit sendBytes(ba);
 }
 
@@ -184,6 +195,21 @@ void PlainTextLog::clear()
     QPlainTextEdit::clear();
 }
 
+void PlainTextLog::clearToCurrentContextMenuLine()
+{
+    //qDebug() << "clearToCurrentLine" << textCursor().block().text() << textCursor().blockNumber();
+
+    QTextCursor cur(document());
+
+    m_contextMenuTextCursor.beginEditBlock();
+    {
+        cur.movePosition(QTextCursor::Start);
+        cur.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, m_contextMenuTextCursor.block().position());
+        cur.removeSelectedText();
+    }
+    m_contextMenuTextCursor.endEditBlock();
+}
+
 void PlainTextLog::resizeEvent(QResizeEvent *e)
 {
     QPlainTextEdit::resizeEvent(e);
@@ -198,12 +224,18 @@ void PlainTextLog::resizeEvent(QResizeEvent *e)
             LogBlockCustomData *lbData = dynamic_cast<LogBlockCustomData*>(uData);
             Q_ASSERT(lbData);
 
-            resizeMark(lbData->m_item, currentBlock);
+            if (lbData->m_item)
+            {
+                resizeMark(lbData->m_item, currentBlock);
+            }
         }
         currentBlock = currentBlock.next();
     }
 
-    m_sideMarkScene->setSceneRect(0,0,0,height()); // sync scene coordinates
+    if (m_sideMarkScene)
+    {
+        m_sideMarkScene->setSceneRect(0,0,0,height()); // sync scene coordinates
+    }
 }
 
 void PlainTextLog::keyPressEvent(QKeyEvent *e)
