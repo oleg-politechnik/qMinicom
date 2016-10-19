@@ -29,4 +29,6 @@ HEADERS  += mainwindow.h \
 FORMS    += mainwindow.ui \
     preferencesdialog.ui
 
-DISTFILES +=
+DISTFILES += \
+    ../LICENSE \
+    ../README
