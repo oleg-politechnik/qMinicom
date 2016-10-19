@@ -6,6 +6,8 @@
 #include <QCursor>
 #include <QPainter>
 #include <QRegExpValidator>
+#include <QClipboard>
+#include <QApplication>
 
 PlainTextLog::PlainTextLog(QWidget *parent) :
     QPlainTextEdit(parent),
@@ -564,6 +566,14 @@ void PlainTextLog::keyPressEvent(QKeyEvent *e)
     }
 
     //qDebug() << e->key() << e->modifiers() << t;
+
+    if (e->matches(QKeySequence::Paste))
+    {
+        QClipboard *clipboard = QApplication::clipboard();
+        // qDebug() << "paste" << clipboard->text();
+        sendBytes(clipboard->text().toUtf8()); // TODO other encodings
+        return;
+    }
 
     const Qt::KeyboardModifier ctrlKeyModifier =
 #ifdef Q_OS_MAC
