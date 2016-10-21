@@ -160,7 +160,17 @@ void PreferencesDialog::readSettings()
 
     m_settings.beginGroup(QLatin1String("LogWidget"));
     {
-        const QString &font_str = m_settings.value(QLatin1String("font"), ui->plainTextEdit->font().toString()).toString();
+        const QString &font_str_default =
+        #if defined(Q_OS_MAC)
+                "Monaco"
+        #elif defined(Q_OS_WIN)
+                "fixed"
+        #else
+                "Monospace"
+        #endif
+                ;
+
+        const QString &font_str = m_settings.value(QLatin1String("font"), font_str_default).toString();
 
         QFont font;
         if (font.fromString(font_str))
