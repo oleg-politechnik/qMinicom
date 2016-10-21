@@ -43,6 +43,9 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->actionClear, SIGNAL(triggered(bool)), ui->logWidget, SLOT(clear()));
     connect(ui->actionClearToLine, SIGNAL(triggered(bool)), ui->logWidget, SLOT(clearToCurrentContextMenuLine()));
 
+    ui->actionPaste->setShortcut(QKeySequence(QKeySequence::Paste));
+    connect(ui->actionPaste, SIGNAL(triggered(bool)), ui->logWidget, SLOT(paste()));
+
     ui->actionFind->setShortcut(QKeySequence(QKeySequence::Find));
     connect(ui->actionFind, SIGNAL(triggered(bool)), this, SLOT(showFindWidget()));
 
@@ -133,6 +136,8 @@ void MainWindow::customLogWidgetContextMenuRequested(const QPoint &pos)
     const QPoint gpos = QWidget::mapToGlobal(pos);
 
     QMenu *menu = ui->logWidget->createStandardContextMenu();
+    menu->addSeparator();
+    menu->addAction(ui->actionPaste);
     menu->addSeparator();
     menu->addAction(ui->actionClear);
     menu->addAction(ui->actionClearToLine);

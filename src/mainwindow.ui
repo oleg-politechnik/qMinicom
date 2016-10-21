@@ -167,6 +167,8 @@
     </property>
     <addaction name="actionFind"/>
     <addaction name="separator"/>
+    <addaction name="actionPaste"/>
+    <addaction name="separator"/>
     <addaction name="actionClear"/>
    </widget>
    <addaction name="menuPrefs"/>
@@ -194,6 +196,11 @@
   <action name="actionClearToLine">
    <property name="text">
     <string>Clear to this line</string>
+   </property>
+  </action>
+  <action name="actionPaste">
+   <property name="text">
+    <string>Paste</string>
    </property>
   </action>
  </widget>

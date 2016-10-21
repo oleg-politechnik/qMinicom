@@ -512,6 +512,12 @@ void PlainTextLog::clearToCurrentContextMenuLine()
     cur.endEditBlock();
 }
 
+void PlainTextLog::paste()
+{
+    // TODO handle multiline/large content with care
+    sendBytes(QApplication::clipboard()->text().toUtf8()); // TODO other encodings
+}
+
 void PlainTextLog::resizeEvent(QResizeEvent *e)
 {
     QPlainTextEdit::resizeEvent(e);
@@ -559,14 +565,6 @@ void PlainTextLog::keyPressEvent(QKeyEvent *e)
     }
 
     //qDebug() << e->key() << e->modifiers() << t;
-
-    if (e->matches(QKeySequence::Paste))
-    {
-        QClipboard *clipboard = QApplication::clipboard();
-        // qDebug() << "paste" << clipboard->text();
-        sendBytes(clipboard->text().toUtf8()); // TODO other encodings
-        return;
-    }
 
     const Qt::KeyboardModifier ctrlKeyModifier =
 #ifdef Q_OS_MAC
@@ -1315,7 +1313,7 @@ void PlainTextLog::appendBytes(const QByteArray &bytes, bool insertCR)
                 break;
 
             default:
-                insertTextAtCaret(QString("\\u00%1").arg(c, 2, 16, QChar('0')));
+                insertTextAtCaret(QString("\\x%1").arg(c, 2, 16, QChar('0')));
                 break;
             }
         }
