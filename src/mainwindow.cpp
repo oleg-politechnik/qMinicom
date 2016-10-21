@@ -38,6 +38,7 @@ MainWindow::MainWindow(QWidget *parent) :
     QGraphicsScene *m_scene = new QGraphicsScene(this);
     ui->logWidget->setSideMarkScene(m_scene);
     ui->sideMarkView->setScene(m_scene);
+    ui->sideMarkView->setVisible(false);
 
     connect(ui->actionClear, SIGNAL(triggered(bool)), ui->logWidget, SLOT(clear()));
     connect(ui->actionClearToLine, SIGNAL(triggered(bool)), ui->logWidget, SLOT(clearToCurrentContextMenuLine()));
@@ -150,6 +151,7 @@ void MainWindow::setFindWidgetVisible(bool visible)
     bool was_at_bottom = (p_scroll_bar->value() == p_scroll_bar->maximum());
 
     ui->findWidget->setVisible(visible);
+    ui->sideMarkView->setVisible(visible);
 
     if (visible)
     {
