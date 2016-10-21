@@ -99,6 +99,14 @@ void PreferencesDialog::accept()
 void PreferencesDialog::pickUpFont(const QString &name)
 {
     QFont font = ui->plainTextEdit->font();
+#ifdef Q_OS_MAC
+    //
+    // (c) https://bugreports.qt.io/browse/QTBUG-19916
+    //
+    // Removes horizontal whitespace between the lines
+    //
+    font.setStyleStrategy(QFont::ForceIntegerMetrics);
+#endif
     font.setFamily(name);
     ui->plainTextEdit->setFont(font);
 
