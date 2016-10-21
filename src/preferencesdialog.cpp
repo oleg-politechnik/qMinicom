@@ -24,6 +24,7 @@ PreferencesDialog::PreferencesDialog(MainWindow *parent) :
     connect(ui->fontComboBox, SIGNAL(activated(QString)), this, SLOT(pickUpFont(QString)));
     connect(ui->fontSizeSpinBox, SIGNAL(valueChanged(int)), this, SLOT(pickUpFontSize(int)));
     connect(ui->tabSizeSpinBox, SIGNAL(valueChanged(int)), this, SLOT(pickUpTabSize(int)));
+    connect(ui->radioButtonSerialDevice, SIGNAL(toggled(bool)), this, SLOT(pickUpPortSelection()));
 
     ui->tabSizeSpinBox->setMinimum(1);
 
@@ -45,9 +46,12 @@ PreferencesDialog::PreferencesDialog(MainWindow *parent) :
 
     //
 
-    connect(this, SIGNAL(openPort(QString,qint32)), m_mainWindow, SIGNAL(openPort(QString,qint32)));
+    connect(this, SIGNAL(openSerialPort(QString,qint32)), m_mainWindow, SIGNAL(openSerialPort(QString,qint32)));
+    connect(this, SIGNAL(openLocalShell()), m_mainWindow, SIGNAL(openLocalShell()));
 
     readSettings();
+
+    pickUpPortSelection();
 }
 
 PreferencesDialog::~PreferencesDialog()
@@ -70,7 +74,7 @@ void PreferencesDialog::open()
         ui->cmbDevice->addItem(pi.portName());
     }
 
-    ui->cmbDevice->setCurrentIndex(ui->cmbDevice->findText(m_mainWindow->currentPortName()));
+    ui->cmbDevice->setCurrentIndex(ui->cmbDevice->findText(m_serialPortName));
 
     QDialog::open();
 }
@@ -79,7 +83,15 @@ void PreferencesDialog::accept()
 {
     QDialog::accept();
 
-    emit openPort(ui->cmbDevice->currentText(), ui->cmbSpeed->currentText().toUInt());
+    if (ui->radioButtonSerialDevice->isChecked())
+    {
+        m_serialPortName = ui->cmbDevice->currentText();
+        emit openSerialPort(m_serialPortName, ui->cmbSpeed->currentText().toUInt());
+    }
+    else
+    {
+        emit openLocalShell();
+    }
 
     m_mainWindow->setLogWidgetSettings(ui->plainTextEdit->font(), pixelsFromSpaces(ui->tabSizeSpinBox->value()));
 }
@@ -109,19 +121,40 @@ void PreferencesDialog::pickUpTabSize(int val)
     plainTextUpdateDemo();
 }
 
+void PreferencesDialog::pickUpPortSelection()
+{
+    bool isSerial = ui->radioButtonSerialDevice->isChecked();
+    ui->cmbDevice->setEnabled(isSerial);
+    ui->cmbSpeed->setEnabled(isSerial);
+    ui->labelParams->setEnabled(isSerial);
+}
+
 void PreferencesDialog::readSettings()
 {
     QSettings m_settings;
 
-    m_settings.beginGroup(QLatin1String("SerialPort"));
+    m_settings.beginGroup(QLatin1String("Port"));
     {
-        QString pn = m_settings.value(QLatin1String("portName"), "").toString();
+        bool isSerial = m_settings.value(QLatin1String("isSerial"), true).toBool();
 
-        qint32 br = m_settings.value(QLatin1String("baudRate"), ui->cmbSpeed->itemText(0)).toInt();
+        m_serialPortName = m_settings.value(QLatin1String("portName"), "").toString();
+
+        // XXX find if the port is present?
+
+        qint32 br = m_settings.value(QLatin1String("baudRate"), QSerialPort::Baud115200).toInt();
         ui->cmbSpeed->setCurrentIndex(ui->cmbSpeed->findText(QString("%1").arg(br)));
         br = ui->cmbSpeed->currentText().toInt();
 
-        emit openPort(pn, br);
+        if (isSerial)
+        {
+            ui->radioButtonSerialDevice->setChecked(true);
+            emit openSerialPort(m_serialPortName, br);
+        }
+        else
+        {
+            ui->radioButtonLocalShell->setChecked(true);
+            emit openLocalShell();
+        }
     }
     m_settings.endGroup();
 
@@ -156,9 +189,10 @@ void PreferencesDialog::writeSettings()
 {
     QSettings m_settings;
 
-    m_settings.beginGroup(QLatin1String("SerialPort"));
+    m_settings.beginGroup(QLatin1String("Port"));
     {
-        m_settings.setValue(QLatin1String("portName"), m_mainWindow->currentPortName());
+        m_settings.setValue(QLatin1String("isSerial"), ui->radioButtonSerialDevice->isChecked());
+        m_settings.setValue(QLatin1String("portName"), m_serialPortName);
         m_settings.setValue(QLatin1String("baudRate"), ui->cmbSpeed->currentText());
     }
     m_settings.endGroup();
@@ -166,7 +200,6 @@ void PreferencesDialog::writeSettings()
     m_settings.beginGroup(QLatin1String("LogWidget"));
     {
         m_settings.setValue(QLatin1String("font"), m_mainWindow->logWidgetFont().toString());
-
         m_settings.setValue(QLatin1String("tabSize"), ui->tabSizeSpinBox->value());
     }
     m_settings.endGroup();

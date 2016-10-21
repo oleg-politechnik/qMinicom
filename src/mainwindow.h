@@ -20,22 +20,21 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
-    const QString &currentPortName();
     const QFont &logWidgetFont();
 
 signals:
-    void openPort(const QString &pn, qint32 br);
     void closePort();
+    void openSerialPort(const QString &pn, qint32 br);
+    void openLocalShell();
 
 public slots:
-    //void openSerialDevice(const QString &portName, qint32 baudRate);
     void setLogWidgetSettings(const QFont &font, int tabStopWidthPixels);
 
 protected:
     void keyPressEvent(QKeyEvent* event);
 
 private slots:
-    void updatePortStatus(AsyncSerialPort::Status st, const QString &pn, qint32 br);
+    void updatePortStatus(AsyncPort::Status st, const QString &pn, qint32 br);
     void customLogWidgetContextMenuRequested(const QPoint &pos);
     void setFindWidgetVisible(bool visible);
     void showFindWidget(void);
@@ -47,8 +46,7 @@ private:
 
     Ui::MainWindow *ui;
     PreferencesDialog *m_dlgPrefs;
-    QThread m_asyncSerialPortThread;
-    QString m_portName;
+    QThread m_asyncPortThread;
 };
 
 #endif // MAINWINDOW_H

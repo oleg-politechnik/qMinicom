@@ -157,8 +157,6 @@ void PlainTextLog::find(bool backward)
             cur.movePosition(QTextCursor::EndOfBlock);
         }
     }
-
-    //qDebug() << "Warning" << __FUNCTION__ << "nothing found" << "(backward=" << backward << ")";
 }
 
 void PlainTextLog::sendVT100EscSeq(PlainTextLog::VT100EscapeCode code)
@@ -365,8 +363,6 @@ QRgb PlainTextLog::ansiColorToRgb(PlainTextLog::AnsiColor ansiColor, bool isBrig
     case ANSI_WHITE:    rgb = isBright ? 0xFFFFFF : 0xC7C7C7;      break;
     }
 
-    //qDebug() << __FUNCTION__ << ansiColor << isBright << "->" << rgb;
-
     return rgb;
 }
 
@@ -383,7 +379,7 @@ void PlainTextLog::clear()
 
     setScrollingRegion(0, terminalScreenHeight - 1);
 
-    m_cursorMode = true;//XXX false;
+    m_cursorMode = false;
 
     resetCaretAttributes();
 }
@@ -506,17 +502,14 @@ void PlainTextLog::moveCaretDownwardsBy(int lines)
 
 void PlainTextLog::clearToCurrentContextMenuLine()
 {
-    //qDebug() << "clearToCurrentLine" << textCursor().block().text() << textCursor().blockNumber();
-
     QTextCursor cur(document());
-
-    m_contextMenuTextCursor.beginEditBlock();
+    cur.beginEditBlock();
     {
         cur.movePosition(QTextCursor::Start);
         cur.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, m_contextMenuTextCursor.block().position());
         cur.removeSelectedText();
     }
-    m_contextMenuTextCursor.endEditBlock();
+    cur.endEditBlock();
 }
 
 void PlainTextLog::resizeEvent(QResizeEvent *e)
@@ -700,7 +693,7 @@ void PlainTextLog::resizeMark(QGraphicsRectItem *item, const QTextBlock &block)
     //qDebug() << markYOffset << block.text();
 }
 
-void PlainTextLog::appendBytes(const QByteArray &bytes)
+void PlainTextLog::appendBytes(const QByteArray &bytes, bool insertCR)
 {
     //
     // With a great help of: http://www.vt100.net/docs/vt102-ug/appendixc.html
@@ -1301,6 +1294,10 @@ void PlainTextLog::appendBytes(const QByteArray &bytes)
 
             case '\n':
                 //qDebug() << "\\n";
+                if (insertCR)
+                {
+                    moveCaretToTheFirstColumn();
+                }
                 moveCaretDownwardsBy(1);
                 break;
 

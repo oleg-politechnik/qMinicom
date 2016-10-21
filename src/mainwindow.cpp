@@ -13,17 +13,17 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
     this->setWindowTitle(QCoreApplication::applicationName());
 
-    qRegisterMetaType<AsyncSerialPort::Status>("AsyncSerialPort::Status");
+    qRegisterMetaType<AsyncPort::Status>("AsyncSerialPort::Status");
 
-    AsyncSerialPort *serialPort = new AsyncSerialPort();
-    serialPort->moveToThread(&m_asyncSerialPortThread);
-    connect(&m_asyncSerialPortThread, SIGNAL(started()), serialPort, SLOT(initialize()));
-    connect(this, SIGNAL(openPort(QString,qint32)), serialPort, SLOT(openPort(QString,qint32)));
-    connect(this, SIGNAL(closePort()), serialPort, SLOT(closePort()));
-    connect(serialPort, SIGNAL(statusChanged(AsyncSerialPort::Status,QString,qint32)),
-            this, SLOT(updatePortStatus(AsyncSerialPort::Status,QString,qint32)));
-    connect(serialPort, SIGNAL(dataReceived(QByteArray)), ui->logWidget, SLOT(appendBytes(QByteArray)));
-    connect(ui->logWidget, SIGNAL(sendBytes(QByteArray)), serialPort, SLOT(sendData(QByteArray)));
+    AsyncPort *port = new AsyncPort();
+    port->moveToThread(&m_asyncPortThread);
+    connect(&m_asyncPortThread, SIGNAL(started()), port, SLOT(initialize()));
+    connect(this, SIGNAL(openSerialPort(QString,qint32)), port, SLOT(openSerialPort(QString,qint32)));
+    connect(this, SIGNAL(openLocalShell()), port, SLOT(openLocalShell()));
+    connect(this, SIGNAL(closePort()), port, SLOT(closePort()));
+    connect(port, SIGNAL(statusChanged(AsyncPort::Status,QString,qint32)), this, SLOT(updatePortStatus(AsyncPort::Status,QString,qint32)));
+    connect(port, SIGNAL(dataReceived(QByteArray,bool)), ui->logWidget, SLOT(appendBytes(QByteArray,bool)));
+    connect(ui->logWidget, SIGNAL(sendBytes(QByteArray)), port, SLOT(sendData(QByteArray)));
 
     ui->findWidget->setVisible(false);
     connect(ui->findLineEdit, SIGNAL(textChanged(QString)), this, SLOT(updateSearch()));
@@ -53,7 +53,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     //
 
-    m_asyncSerialPortThread.start(QThread::HighestPriority);
+    m_asyncPortThread.start(QThread::HighestPriority);
 
     //
 
@@ -71,13 +71,8 @@ MainWindow::~MainWindow()
 
     delete ui;
 
-    m_asyncSerialPortThread.quit();
-    m_asyncSerialPortThread.wait();
-}
-
-const QString &MainWindow::currentPortName()
-{
-    return m_portName;
+    m_asyncPortThread.quit();
+    m_asyncPortThread.wait();
 }
 
 const QFont &MainWindow::logWidgetFont()
@@ -106,29 +101,27 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
     }
 }
 
-void MainWindow::updatePortStatus(AsyncSerialPort::Status st, const QString &pn, qint32 br)
+void MainWindow::updatePortStatus(AsyncPort::Status st, const QString &pn, qint32 br)
 {
     QString msg;
-
-    m_portName = pn;
 
     if (!pn.isEmpty())
     {
         msg += tr("%1 ").arg(pn);
 
-        if (st == AsyncSerialPort::Online)
+        if (st == AsyncPort::Online && br > 0) // br is <= 0 for the local shell
         {
             msg += tr("| %1").arg(br);
         }
         else
         {
             msg += "| ";
-            msg += AsyncSerialPort::convertStatusToQString(st);
+            msg += AsyncPort::convertStatusToQString(st);
         }
     }
     else
     {
-        msg += AsyncSerialPort::convertStatusToQString(st);
+        msg += AsyncPort::convertStatusToQString(st);
     }
 
     ui->labelStatus->setText(msg);

@@ -20,7 +20,8 @@ public:
     ~PreferencesDialog();
 
 signals:
-    void openPort(const QString &pn, qint32 br);
+    void openSerialPort(const QString &pn, qint32 br);
+    void openLocalShell();
 
 public slots:
     void open();
@@ -30,6 +31,7 @@ private slots:
     void pickUpFont(const QString &name);
     void pickUpFontSize(int val);
     void pickUpTabSize(int val);
+    void pickUpPortSelection();
 
 private:
     void readSettings();
@@ -42,6 +44,7 @@ private:
     MainWindow *m_mainWindow;
     int m_textShade;
     int m_bgShade;
+    QString m_serialPortName;
 };
 
 #endif // PREFERENCESDIALOG_H

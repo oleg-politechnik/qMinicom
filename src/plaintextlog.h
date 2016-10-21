@@ -63,7 +63,7 @@ signals:
     void sendBytes(const QByteArray &bytes);
 
 public slots:
-    void appendBytes(const QByteArray &bytes);
+    void appendBytes(const QByteArray &bytes, bool insertCR = false);
     //void appendTextNoNewline(const QString &text);
     void setSearchPhrase(const QString &phrase, bool caseSensitive);
     void findNext();
