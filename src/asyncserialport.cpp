@@ -31,7 +31,6 @@ void AsyncPort::initialize()
     connect(m_serialConnectionCheckTimer, SIGNAL(timeout()), this, SLOT(checkSerialPort()));
 
     m_serialPort = new QSerialPort(this);
-    connect(m_serialPort, SIGNAL(error(QSerialPort::SerialPortError)), this, SLOT(serialPortError(QSerialPort::SerialPortError)));
 
     m_localShell = new QProcess(this);
     QProcessEnvironment env = m_localShell->processEnvironment();
@@ -80,6 +79,12 @@ void AsyncPort::openSerialPort(const QString &pn, qint32 br)
     {
         m_serialPort->setPortName(pn);
 
+        bool portInited = (m_serialPort->setParity(QSerialPort::NoParity) &&
+                           m_serialPort->setDataBits(QSerialPort::Data8) &&
+                           m_serialPort->setStopBits(QSerialPort::OneStop) &&
+                           m_serialPort->setFlowControl(QSerialPort::NoFlowControl) &&
+                           m_serialPort->setBaudRate(br));
+
         if (!m_serialPort->open(QSerialPort::ReadWrite))
         {
             qDebug() << "ERROR Can't open" << pn;
@@ -88,23 +93,35 @@ void AsyncPort::openSerialPort(const QString &pn, qint32 br)
         }
         else
         {
-            m_serialPort->setParity(QSerialPort::NoParity); // todo if
-            m_serialPort->setDataBits(QSerialPort::Data8); // todo if
-            m_serialPort->setParity(QSerialPort::NoParity); // todo if
-            m_serialPort->setStopBits(QSerialPort::OneStop); // todo if
-            m_serialPort->setFlowControl(QSerialPort::NoFlowControl); // todo if
+            if (!portInited)
+            {
+                portInited = (m_serialPort->setParity(QSerialPort::NoParity) &&
+                              m_serialPort->setDataBits(QSerialPort::Data8) &&
+                              m_serialPort->setStopBits(QSerialPort::OneStop) &&
+                              m_serialPort->setFlowControl(QSerialPort::NoFlowControl) &&
+                              m_serialPort->setBaudRate(br));
+            }
 
-            m_serialPort->setBaudRate(br);
+            if (!portInited)
+            {
+                qDebug() << "ERROR Can't init" << pn;
+                updateStatus(Error);
+            }
+            else
+            {
+                m_serialPort->clear();
+                m_serialPort->clearError();
 
-            m_serialPort->clear();
+                qDebug() << "port" << m_serialPort->portName() << "@" << m_serialPort->baudRate() << "opened";
 
-            qDebug() << "port" << m_serialPort->portName() << "@" << m_serialPort->baudRate() << "opened";
+                connect(m_serialPort, SIGNAL(readyRead()), this, SLOT(readPort()));
 
-            connect(m_serialPort, SIGNAL(readyRead()), this, SLOT(readPort()));
+                updateStatus(Online);
 
-            updateStatus(Online);
+                m_serialConnectionCheckTimer->start(1000);
 
-            m_serialConnectionCheckTimer->start(1000);
+                connect(m_serialPort, SIGNAL(error(QSerialPort::SerialPortError)), this, SLOT(serialPortError(QSerialPort::SerialPortError)));
+            }
         }
     }
 }
@@ -152,6 +169,7 @@ void AsyncPort::closePort(AsyncPort::Status st)
         }
         m_serialConnectionCheckTimer->stop();
         m_serialPort->clearError();
+        connect(m_serialPort, SIGNAL(error(QSerialPort::SerialPortError)), this, SLOT(serialPortError(QSerialPort::SerialPortError)));
     }
     else if (m_port == m_localShell)
     {
