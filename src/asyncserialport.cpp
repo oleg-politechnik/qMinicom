@@ -224,30 +224,40 @@ void AsyncPort::readPort()
 
 void AsyncPort::checkSerialPort()
 {
-    Q_ASSERT(m_port == m_serialPort);
-
-    if (m_serialPort->isOpen())
+    if (m_port == m_serialPort)
     {
-        QSerialPortInfo info(*m_serialPort);
-        if (!info.isValid())
+        if (m_serialPort->isOpen())
         {
-            qDebug() << "Warning: port" << m_serialPort->portName() << "is invalid, closing...";
-            closePort(Disconnected);
+            QSerialPortInfo info(*m_serialPort);
+            if (!info.isValid())
+            {
+                qDebug() << "Warning: port" << m_serialPort->portName() << "is invalid, closing...";
+                closePort(Disconnected);
+            }
         }
+    }
+    else
+    {
+        qDebug() << "Warning:" << __FUNCTION__ << ": no port is opened";
     }
 }
 
 void AsyncPort::serialPortError(QSerialPort::SerialPortError serialPortError)
 {
-    Q_ASSERT(m_port == m_serialPort);
-
-    if (serialPortError != QSerialPort::NoError)
+    if (m_port == m_serialPort)
     {
-        qDebug() << "Serial port error:" << serialPortError << ", closing...";
-        closePort(Error);
+        if (serialPortError != QSerialPort::NoError)
+        {
+            qDebug() << "Serial port error:" << serialPortError << ", closing...";
+            closePort(Error);
+        }
+    }
+    else
+    {
+        qDebug() << "Warning:" << __FUNCTION__ << ": no port is opened";
+        qDebug() << "Serial port error:" << serialPortError;
     }
 }
-
 
 void AsyncPort::startedLocalShell()
 {
@@ -282,7 +292,6 @@ void AsyncPort::stateChangedLocalShell(QProcess::ProcessState state)
         break;
     }
 }
-
 
 void AsyncPort::updateStatus(AsyncPort::Status st)
 {
