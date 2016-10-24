@@ -1236,32 +1236,37 @@ void PlainTextLog::appendBytes(const QByteArray &bytes, bool insertCR)
         }
         else if (c >= 0x20)
         {
+            int dropped = 0;
+
             QString str;
-
             str += m_decoder->toUnicode((const char *) &c, 1);
-
-            if (m_decoder->hasFailure())
-            {
-                qDebug() << "Error: m_decoder->hasFailure";
-                resetTextDecoder();
-            }
 
             while (i < bytes.size() && bytes.at(i) >= ' ')
             {
-                c = bytes.at(i);
-                str += m_decoder->toUnicode((const char *) &c, 1);
-                i++;
+                if (!m_decoder->hasFailure())
+                {
+                    c = bytes.at(i);
+                    str += m_decoder->toUnicode((const char *) &c, 1);
+                }
 
                 if (m_decoder->hasFailure())
                 {
-                    qDebug() << "Error: m_decoder->hasFailure";
-                    resetTextDecoder();
+                    dropped++;
                 }
+
+                i++;
             }
 
             if (!str.isEmpty())
             {
                 insertTextAtCaret(str);
+            }
+
+            if (m_decoder->hasFailure())
+            {
+                qDebug() << "Error: utf8 decoder failure, dropped" << dropped << "octets";
+                insertTextAtCaret("\u25AF"); // hollow rectangle
+                resetTextDecoder();
             }
         }
         else
