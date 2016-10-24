@@ -278,6 +278,7 @@ void AsyncPort::stateChangedLocalShell(QProcess::ProcessState state)
 
     case QProcess::Running:
         updateStatus(Online);
+        qDebug() << "local shell opened";
         break;
     }
 }
