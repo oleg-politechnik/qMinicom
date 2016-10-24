@@ -71,6 +71,7 @@ public slots:
     void find(bool backward);
     void clear();
     void clearToCurrentContextMenuLine();
+    void trimContentsByTheRightEdge();
     void paste();
 
 protected:

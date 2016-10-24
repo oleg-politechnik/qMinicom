@@ -34,6 +34,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     ui->logWidget->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->logWidget, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(customLogWidgetContextMenuRequested(QPoint)));
+    connect(ui->logWidget->horizontalScrollBar(), SIGNAL(rangeChanged(int,int)), this, SLOT(logWindowHorizontalBarRangeChanged(int,int)));
 
     QGraphicsScene *m_scene = new QGraphicsScene(this);
     ui->logWidget->setSideMarkScene(m_scene);
@@ -45,6 +46,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
     ui->actionPaste->setShortcut(QKeySequence(QKeySequence::Paste));
     connect(ui->actionPaste, SIGNAL(triggered(bool)), ui->logWidget, SLOT(paste()));
+
+    connect(ui->actionTrimContentsHorizontally, SIGNAL(triggered(bool)), ui->logWidget, SLOT(trimContentsByTheRightEdge()));
+    ui->actionTrimContentsHorizontally->setEnabled(false);
 
     ui->actionFind->setShortcut(QKeySequence(QKeySequence::Find));
     connect(ui->actionFind, SIGNAL(triggered(bool)), this, SLOT(showFindWidget()));
@@ -141,6 +145,7 @@ void MainWindow::customLogWidgetContextMenuRequested(const QPoint &pos)
     menu->addSeparator();
     menu->addAction(ui->actionClear);
     menu->addAction(ui->actionClearToLine);
+    menu->addAction(ui->actionTrimContentsHorizontally);
 
     QTextCursor cur = ui->logWidget->cursorForPosition(pos);
     ui->logWidget->setContextMenuTextCursor(cur);
@@ -186,6 +191,11 @@ void MainWindow::updateSearch()
     {
         ui->logWidget->setSearchPhrase(QString(), ui->csFindBtn->isChecked());
     }
+}
+
+void MainWindow::logWindowHorizontalBarRangeChanged(int min, int max)
+{
+    ui->actionTrimContentsHorizontally->setEnabled(min != max);
 }
 
 void MainWindow::readSettings()

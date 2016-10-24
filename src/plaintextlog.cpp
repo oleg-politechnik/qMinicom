@@ -512,6 +512,45 @@ void PlainTextLog::clearToCurrentContextMenuLine()
     cur.endEditBlock();
 }
 
+void PlainTextLog::trimContentsByTheRightEdge()
+{
+    int maxBlockWidth = viewport()->width();
+
+    QTextBlock currentBlock = document()->begin();
+    while (currentBlock.isValid())
+    {
+        if (blockBoundingRect(currentBlock).right() > maxBlockWidth)
+        {
+            int i = 0;
+            QString str;
+            QFontMetrics fm(font());
+
+            for (i = 0; i < currentBlock.text().size(); )
+            {
+                str += currentBlock.text().at(i);
+                if (fm.size(Qt::TextExpandTabs, str, this->tabStopWidth()).width() > maxBlockWidth)
+                {
+                    break;
+                }
+                i++;
+            }
+
+            Q_ASSERT(i > 1);
+
+            QTextCursor cur(currentBlock);
+            cur.beginEditBlock();
+            {
+                cur.movePosition(QTextCursor::NextCharacter, QTextCursor::MoveAnchor, i - 1);
+                cur.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+                cur.removeSelectedText();
+            }
+            cur.endEditBlock();
+        }
+
+        currentBlock = currentBlock.next();
+    }
+}
+
 void PlainTextLog::paste()
 {
     // TODO handle multiline/large content with care

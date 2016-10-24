@@ -170,6 +170,7 @@
     <addaction name="actionPaste"/>
     <addaction name="separator"/>
     <addaction name="actionClear"/>
+    <addaction name="actionTrimContentsHorizontally"/>
    </widget>
    <addaction name="menuPrefs"/>
    <addaction name="menuLog"/>
@@ -201,6 +202,14 @@
   <action name="actionPaste">
    <property name="text">
     <string>Paste</string>
+   </property>
+  </action>
+  <action name="actionTrimContentsHorizontally">
+   <property name="text">
+    <string>Trim contents horizontally</string>
+   </property>
+   <property name="toolTip">
+    <string>Trim contents horizontally</string>
    </property>
   </action>
  </widget>

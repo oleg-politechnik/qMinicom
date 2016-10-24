@@ -39,6 +39,7 @@ private slots:
     void setFindWidgetVisible(bool visible);
     void showFindWidget(void);
     void updateSearch();
+    void logWindowHorizontalBarRangeChanged(int min, int max);
 
 private:
     void writeSettings();
